@@ -78,7 +78,7 @@ export default function Navbar() {
         <div className="flex min-w-0 items-center gap-6">
           <Link to="/" className="flex items-center gap-3 text-primary">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
-              <img className="h-6 w-6 object-contain" src="/logo.png" alt="Koinara" />
+              <img className="h-7 w-7 scale-[1.7] object-contain" src="/favicon.png" alt="Koinara" />
             </div>
             <div className="min-w-0">
               <div className="truncate text-lg font-black tracking-tight text-slate-100">{t("brand_title")}</div>

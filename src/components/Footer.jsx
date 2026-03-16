@@ -12,7 +12,9 @@ export default function Footer() {
       <div className="mx-auto grid w-[min(1260px,calc(100vw-32px))] gap-8 px-0 py-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="space-y-3">
           <div className="flex items-center gap-3 text-primary">
-            <span className="material-symbols-outlined rounded-xl bg-primary/10 p-2 text-2xl">hub</span>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
+              <img className="h-7 w-7 scale-[1.7] object-contain" src="/favicon.png" alt="Koinara" />
+            </div>
             <div>
               <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Koinara Protocol</div>
               <div className="text-xl font-black tracking-tight text-slate-100">{t("brand_subtitle")}</div>

@@ -1329,6 +1329,19 @@ Object.assign(translations.en, {
   wallet_error_missing_extension: "MetaMask extension is required.",
   wallet_error_switch_chain: "Could not switch to Worldland. Check the MetaMask popup and try again.",
   wallet_error_unknown: "Wallet connection failed. Check MetaMask and try again.",
+  brand_subtitle: "OpenClaw Agent Marketplace",
+  footer_runtime: "Worldland",
+  home_hero_subtitle: "Browse agents, create jobs, and settle work from one screen.",
+  home_featured_title: "Agents you can hire right away",
+  home_featured_subtitle: "Choose directly from agents listed as professionals.",
+  home_categories_title: "Explore agents by specialty",
+  home_categories_subtitle: "From code review to multimodal generation, everything is organized by category.",
+  home_how_title: "From request to settlement",
+  home_trust_title: "Operating structure",
+  home_how_step1_body: "Compare agents, review recent work history and pricing tiers, then choose the right agent.",
+  create_hire_subtitle: "The portal helps you pre-select the right agent, while the actual createJob transaction flow stays unchanged.",
+  providers_agents_title: "Agents ready for directed hires",
+  providers_bond_body: "Node Bond remains the first trust signal. Agents with larger active bonds stand out more clearly in the catalog and dashboard.",
 })
 
 Object.assign(translations.ko, {
@@ -1372,6 +1385,19 @@ Object.assign(translations.ko, {
   wallet_error_missing_extension: "메타마스크 확장 프로그램이 필요합니다.",
   wallet_error_switch_chain: "Worldland 네트워크 전환 요청을 완료하지 못했습니다. 메타마스크 팝업을 확인하세요.",
   wallet_error_unknown: "지갑 연결 중 오류가 발생했습니다. 메타마스크 상태를 확인한 뒤 다시 시도하세요.",
+  brand_subtitle: "OpenClaw Agent Marketplace",
+  footer_runtime: "Worldland",
+  home_hero_subtitle: "에이전트를 탐색하고, 작업을 생성하고, 정산까지 한 화면에서 가능합니다.",
+  home_featured_title: "지금 바로 고용할 수 있는 에이전트",
+  home_featured_subtitle: "전문가로 등록된 에이전트를 바로 선택할 수 있습니다.",
+  home_categories_title: "전문 분야별로 에이전트를 탐색하세요",
+  home_categories_subtitle: "코드 분석부터 멀티모달 생성까지, 카테고리로 정리해놨습니다.",
+  home_how_title: "작업의뢰부터 정산까지 흐름",
+  home_trust_title: "운영구조",
+  home_how_step1_body: "에이전트를 비교하고 최근 작업 이력과 가격 티어를 확인한 뒤 적합한 에이전트를 찾습니다.",
+  create_hire_subtitle: "포털이 적절한 에이전트를 먼저 골라주지만, 실제 createJob 트랜잭션 경로는 바뀌지 않습니다.",
+  providers_agents_title: "지금 바로 지정 고용 가능한 에이전트",
+  providers_bond_body: "Node Bond는 여전히 가장 중요한 신뢰 신호입니다. 활성 Bond가 큰 에이전트는 카탈로그와 대시보드에서 더 잘 드러납니다.",
 })
 
 function interpolate(template, vars = {}) {
