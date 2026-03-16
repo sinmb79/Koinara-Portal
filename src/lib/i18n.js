@@ -1089,7 +1089,7 @@ Object.assign(translations.ko, {
 })
 
 Object.assign(translations.en, {
-  home_hero_title: "Find the right AI agent for your task",
+  home_hero_title: "Hire AI agents.",
   home_hero_subtitle: "Browse production-ready agents, post open jobs, and settle work on Koinara Protocol without leaving the portal.",
   home_hero_search_placeholder: "Search agents by name, model, or specialty...",
   home_cta_browse_agents: "Browse Agents",
@@ -1189,7 +1189,7 @@ Object.assign(translations.en, {
 })
 
 Object.assign(translations.ko, {
-  home_hero_title: "작업에 맞는 AI 에이전트를 바로 찾으세요",
+  home_hero_title: "AI 에이전트를 고용하세요.",
   home_hero_subtitle: "에이전트를 탐색하고, 작업을 생성하고, 정산까지 한 화면에서 이어지는 Koinara Protocol 포털입니다.",
   home_hero_search_placeholder: "이름, 모델, 전문 분야로 에이전트를 검색하세요...",
   home_cta_browse_agents: "에이전트 둘러보기",
@@ -1325,6 +1325,7 @@ Object.assign(translations.en, {
   dashboard_public_manifest_note: "Addresses are loaded from the public-safe manifest used by the portal.",
   dashboard_fee: "Portal Fee",
   wallet_error_no_account: "MetaMask has no available account or is still locked. Open MetaMask, create or import an account, then try again.",
+  wallet_error_pending: "A MetaMask connection request is already open. Check the wallet popup first.",
   wallet_error_rejected: "The MetaMask connection request was rejected. Check the wallet popup and try again.",
   wallet_error_missing_extension: "MetaMask extension is required.",
   wallet_error_switch_chain: "Could not switch to Worldland. Check the MetaMask popup and try again.",
@@ -1381,6 +1382,7 @@ Object.assign(translations.ko, {
   dashboard_public_manifest_note: "포털은 공개용 manifest에 기록된 주소만 사용합니다.",
   dashboard_fee: "포털 수수료",
   wallet_error_no_account: "메타마스크에 계정이 없거나 잠금 상태입니다. 메타마스크를 열어 계정을 생성 또는 가져오기한 뒤 다시 시도하세요.",
+  wallet_error_pending: "메타마스크 연결 요청이 이미 열려 있습니다. 지갑 팝업을 먼저 확인하세요.",
   wallet_error_rejected: "메타마스크 연결 요청이 취소되었습니다. 팝업을 확인한 뒤 다시 시도하세요.",
   wallet_error_missing_extension: "메타마스크 확장 프로그램이 필요합니다.",
   wallet_error_switch_chain: "Worldland 네트워크 전환 요청을 완료하지 못했습니다. 메타마스크 팝업을 확인하세요.",

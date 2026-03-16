@@ -5,8 +5,9 @@ import { useT } from "../lib/i18n.js"
 
 export function Button({ children, variant = "primary", full = false, loading = false, ...props }) {
   const className = `button button-${variant}${full ? " button-full" : ""}`
+  const disabled = loading || props.disabled
   return (
-    <button className={className} {...props}>
+    <button className={className} disabled={disabled} aria-busy={loading} {...props}>
       {loading ? <span className="spinner" style={{ width: 18, height: 18 }} /> : null}
       {children}
     </button>

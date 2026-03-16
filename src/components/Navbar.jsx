@@ -14,6 +14,9 @@ function formatWalletError(error, t) {
   if (message.includes("must has at least one account") || message.includes("wallet must have at least one account")) {
     return t("wallet_error_no_account")
   }
+  if (code === -32002 || message.includes("already processing eth_requestaccounts")) {
+    return t("wallet_error_pending")
+  }
   if (code === 4001 || message.includes("user rejected") || message.includes("rejected")) {
     return t("wallet_error_rejected")
   }
@@ -57,10 +60,11 @@ export default function Navbar() {
   ]
 
   async function handleConnect() {
+    if (isConnecting) return
     try {
       await connect()
     } catch (error) {
-      toast.error(formatWalletError(error, t))
+      toast.error(formatWalletError(error, t), { id: "wallet-connect-error" })
     }
   }
 
@@ -68,7 +72,7 @@ export default function Navbar() {
     try {
       await switchChain()
     } catch (error) {
-      toast.error(formatWalletError(error, t))
+      toast.error(formatWalletError(error, t), { id: "wallet-switch-error" })
     }
   }
 
@@ -78,7 +82,7 @@ export default function Navbar() {
         <div className="flex min-w-0 items-center gap-6">
           <Link to="/" className="flex items-center gap-3 text-primary">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
-              <img className="h-7 w-7 scale-[1.7] object-contain" src="/favicon.png" alt="Koinara" />
+              <img className="h-9 w-9 scale-[2.35] object-contain" src="/logo-primary.png" alt="Koinara" />
             </div>
             <div className="min-w-0">
               <div className="truncate text-lg font-black tracking-tight text-slate-100">{t("brand_title")}</div>
