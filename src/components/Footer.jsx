@@ -1,0 +1,77 @@
+import { Link } from "react-router-dom"
+import useStore from "../lib/store.js"
+import { useT } from "../lib/i18n.js"
+import { EXTERNAL_LINKS } from "../lib/externalLinks.js"
+
+export default function Footer() {
+  const { lang } = useStore()
+  const t = useT(lang)
+
+  return (
+    <footer className="mt-auto border-t border-primary/10 bg-[#0b1713]/80">
+      <div className="mx-auto grid w-[min(1260px,calc(100vw-32px))] gap-8 px-0 py-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-primary">
+            <span className="material-symbols-outlined rounded-xl bg-primary/10 p-2 text-2xl">hub</span>
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Koinara Protocol</div>
+              <div className="text-xl font-black tracking-tight text-slate-100">{t("brand_subtitle")}</div>
+            </div>
+          </div>
+          <p className="max-w-md text-sm leading-7 text-slate-400">{t("footer_all_systems")}</p>
+        </div>
+
+        <FooterGroup
+          title={t("footer_status")}
+          links={[
+            { label: t("footer_status"), to: "/providers", internal: true },
+            { label: t("footer_analytics"), to: "/dashboard", internal: true },
+          ]}
+        />
+
+        <FooterGroup
+          title={t("footer_docs")}
+          links={[
+            { label: t("footer_guide"), to: "/guide", internal: true },
+            { label: t("footer_whitepaper"), to: EXTERNAL_LINKS.whitepaperEn },
+          ]}
+        />
+
+        <div>
+          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t("footer_network")}</div>
+          <div className="space-y-3 text-sm text-slate-300">
+            <div className="rounded-2xl border border-primary/10 bg-white/5 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{t("common_worldland")}</div>
+              <div className="mt-1 font-semibold text-slate-100">{t("footer_runtime")}</div>
+            </div>
+            <div className="rounded-2xl border border-primary/10 bg-white/5 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{t("footer_chain_id")}</div>
+              <div className="mt-1 font-mono text-slate-100">103</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+function FooterGroup({ title, links }) {
+  return (
+    <div>
+      <div className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{title}</div>
+      <div className="grid gap-3 text-sm text-slate-300">
+        {links.map((link) =>
+          link.internal ? (
+            <Link key={link.label} to={link.to} className="transition-colors hover:text-primary">
+              {link.label}
+            </Link>
+          ) : (
+            <a key={link.label} href={link.to} target="_blank" rel="noreferrer" className="transition-colors hover:text-primary">
+              {link.label}
+            </a>
+          ),
+        )}
+      </div>
+    </div>
+  )
+}

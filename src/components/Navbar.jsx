@@ -1,9 +1,11 @@
 import { Link, NavLink } from "react-router-dom"
+import { useState } from "react"
 import { toast } from "react-hot-toast"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { Button, StatusPill } from "./ui.jsx"
 import { shortAddress } from "../lib/chain.js"
+import SearchBar from "./SearchBar.jsx"
 
 export default function Navbar() {
   const {
@@ -18,14 +20,20 @@ export default function Navbar() {
     switchChain,
   } = useStore()
   const t = useT(lang)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  const navItems = [
+  const mainNavItems = [
     ["/", t("nav_home")],
-    ["/guide", t("nav_guide")],
+    ["/dashboard", t("nav_dashboard")],
+    ["/agents", t("nav_agents")],
+    ["/dashboard/bond", t("nav_staking")],
+    ["/guide", t("nav_docs")],
+  ]
+
+  const secondaryNavItems = [
     ["/jobs", t("nav_jobs")],
     ["/submit", t("nav_create")],
     ["/providers", t("nav_providers")],
-    ["/dashboard", t("nav_dashboard")],
   ]
 
   async function handleConnect() {
@@ -45,31 +53,44 @@ export default function Navbar() {
   }
 
   return (
-    <header className="topbar">
-      <div className="topbar-inner">
-        <Link to="/" className="brand-mark">
-          <img className="brand-logo" src="/logo.png" alt="Koinara" />
-          <div>
-            <div className="brand-title">{t("brand_title")}</div>
-            <div className="brand-subtitle">{t("brand_subtitle")}</div>
+    <header className="sticky top-0 z-50 border-b border-primary/10 bg-[#0f231d]/80 backdrop-blur-md">
+      <div className="mx-auto flex min-h-[76px] w-[min(1280px,calc(100vw-32px))] items-center justify-between gap-6 py-3">
+        <div className="flex min-w-0 items-center gap-6">
+          <Link to="/" className="flex items-center gap-3 text-primary">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
+              <img className="h-6 w-6 object-contain" src="/logo.png" alt="Koinara" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-lg font-black tracking-tight text-slate-100">{t("brand_title")}</div>
+              <div className="truncate text-xs uppercase tracking-[0.22em] text-slate-500">{t("brand_subtitle")}</div>
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-6 lg:flex">
+            {mainNavItems.map(([to, label]) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `border-b-2 py-6 text-sm font-semibold transition-colors ${isActive ? "border-primary text-primary" : "border-transparent text-slate-400 hover:text-primary"}`
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-4 xl:flex">
+          <div className="hidden w-full max-w-[220px] 2xl:block">
+            <SearchBar placeholder={t("search_agents_placeholder")} compact />
           </div>
-        </Link>
 
-        <nav className="nav-links">
-          {navItems.map(([to, label]) => (
-            <NavLink key={to} to={to} className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="topbar-actions">
-          <div className="lang-toggle">
+          <div className="inline-flex items-center rounded-full border border-primary/10 bg-white/5 p-1">
             {["ko", "en"].map((value) => (
               <button
                 key={value}
-                className={`button ${lang === value ? "button-primary" : "button-ghost"}`}
-                style={{ minHeight: 34, padding: "0 12px" }}
+                className={`h-9 rounded-full px-3 text-xs font-semibold transition-colors ${lang === value ? "bg-primary text-[#0f231d]" : "text-slate-400 hover:text-slate-100"}`}
                 onClick={() => setLang(value)}
               >
                 {value.toUpperCase()}
@@ -78,7 +99,7 @@ export default function Navbar() {
           </div>
 
           {address ? (
-            <>
+            <div className="flex items-center gap-2">
               {isCorrectChain ? (
                 <StatusPill tone="success">{dashboard.currentEpoch ? `Epoch ${dashboard.currentEpoch}` : "Connected"}</StatusPill>
               ) : (
@@ -86,18 +107,80 @@ export default function Navbar() {
                   {t("nav_switch_chain")}
                 </Button>
               )}
-              <StatusPill tone="dim">{shortAddress(address)}</StatusPill>
+              <span className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-4 font-mono text-xs text-slate-200">
+                {shortAddress(address)}
+              </span>
               <Button variant="ghost" onClick={disconnect}>
                 {t("nav_disconnect")}
               </Button>
-            </>
+            </div>
           ) : (
             <Button variant="primary" loading={isConnecting} onClick={handleConnect}>
               {isConnecting ? t("nav_connecting") : t("nav_connect")}
             </Button>
           )}
         </div>
+
+        <div className="flex items-center gap-2 xl:hidden">
+          {address ? (
+            <button
+              className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-3 font-mono text-xs text-slate-200"
+              onClick={disconnect}
+            >
+              {shortAddress(address)}
+            </button>
+          ) : (
+            <Button variant="primary" loading={isConnecting} onClick={handleConnect}>
+              {isConnecting ? t("nav_connecting") : t("nav_connect")}
+            </Button>
+          )}
+          <button
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/10 bg-white/5 text-slate-200"
+            onClick={() => setMobileOpen((value) => !value)}
+            aria-label="Toggle navigation"
+          >
+            <span className="material-symbols-outlined">{mobileOpen ? "close" : "menu"}</span>
+          </button>
+        </div>
       </div>
+
+      {mobileOpen ? (
+        <div className="border-t border-primary/10 bg-[#10261f]/95 px-4 pb-4 pt-4 xl:hidden">
+          <div className="mx-auto grid w-[min(1280px,calc(100vw-32px))] gap-4">
+            <SearchBar placeholder={t("search_agents_placeholder")} compact />
+            <div className="grid gap-2">
+              {[...mainNavItems, ...secondaryNavItems].map(([to, label]) => (
+                <NavLink
+                  key={`mobile-${to}`}
+                  to={to}
+                  className={({ isActive }) =>
+                    `rounded-xl border px-4 py-3 text-sm font-semibold ${isActive ? "border-primary/40 bg-primary/10 text-primary" : "border-white/5 bg-white/5 text-slate-200"}`
+                  }
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+            <div className="inline-flex items-center rounded-full border border-primary/10 bg-white/5 p-1">
+              {["ko", "en"].map((value) => (
+                <button
+                  key={`mobile-lang-${value}`}
+                  className={`h-9 rounded-full px-3 text-xs font-semibold transition-colors ${lang === value ? "bg-primary text-[#0f231d]" : "text-slate-400 hover:text-slate-100"}`}
+                  onClick={() => setLang(value)}
+                >
+                  {value.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            {address && !isCorrectChain ? (
+              <Button variant="danger" onClick={handleSwitch}>
+                {t("nav_switch_chain")}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </header>
   )
 }
