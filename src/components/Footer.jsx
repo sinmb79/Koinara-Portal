@@ -13,7 +13,7 @@ export default function Footer() {
         <div className="space-y-3">
           <div className="flex items-center gap-3 text-primary">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
-              <img className="h-9 w-9 scale-[2.35] object-contain" src="/logo-primary.png" alt="Koinara" />
+              <img className="h-8 w-8 scale-[1.7] object-contain" src="/logo-primary.png" alt="Koinara" />
             </div>
             <div>
               <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Koinara Protocol</div>
