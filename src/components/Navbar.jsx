@@ -7,6 +7,26 @@ import { Button, StatusPill } from "./ui.jsx"
 import { shortAddress } from "../lib/chain.js"
 import SearchBar from "./SearchBar.jsx"
 
+function formatWalletError(error, t) {
+  const message = String(error?.reason || error?.message || "").toLowerCase()
+  const code = error?.code
+
+  if (message.includes("must has at least one account") || message.includes("wallet must have at least one account")) {
+    return t("wallet_error_no_account")
+  }
+  if (code === 4001 || message.includes("user rejected") || message.includes("rejected")) {
+    return t("wallet_error_rejected")
+  }
+  if (message.includes("metamask is required")) {
+    return t("wallet_error_missing_extension")
+  }
+  if (message.includes("wallet_switchethereumchain") || message.includes("wallet_addethereumchain")) {
+    return t("wallet_error_switch_chain")
+  }
+
+  return error?.reason || error?.message || t("wallet_error_unknown")
+}
+
 export default function Navbar() {
   const {
     lang,
@@ -40,7 +60,7 @@ export default function Navbar() {
     try {
       await connect()
     } catch (error) {
-      toast.error(error.message)
+      toast.error(formatWalletError(error, t))
     }
   }
 
@@ -48,7 +68,7 @@ export default function Navbar() {
     try {
       await switchChain()
     } catch (error) {
-      toast.error(error.message)
+      toast.error(formatWalletError(error, t))
     }
   }
 

@@ -1324,6 +1324,11 @@ Object.assign(translations.en, {
   dashboard_node_status: "Node status",
   dashboard_public_manifest_note: "Addresses are loaded from the public-safe manifest used by the portal.",
   dashboard_fee: "Portal Fee",
+  wallet_error_no_account: "MetaMask has no available account or is still locked. Open MetaMask, create or import an account, then try again.",
+  wallet_error_rejected: "The MetaMask connection request was rejected. Check the wallet popup and try again.",
+  wallet_error_missing_extension: "MetaMask extension is required.",
+  wallet_error_switch_chain: "Could not switch to Worldland. Check the MetaMask popup and try again.",
+  wallet_error_unknown: "Wallet connection failed. Check MetaMask and try again.",
 })
 
 Object.assign(translations.ko, {
@@ -1362,6 +1367,11 @@ Object.assign(translations.ko, {
   dashboard_node_status: "노드 상태",
   dashboard_public_manifest_note: "포털은 공개용 manifest에 기록된 주소만 사용합니다.",
   dashboard_fee: "포털 수수료",
+  wallet_error_no_account: "메타마스크에 계정이 없거나 잠금 상태입니다. 메타마스크를 열어 계정을 생성 또는 가져오기한 뒤 다시 시도하세요.",
+  wallet_error_rejected: "메타마스크 연결 요청이 취소되었습니다. 팝업을 확인한 뒤 다시 시도하세요.",
+  wallet_error_missing_extension: "메타마스크 확장 프로그램이 필요합니다.",
+  wallet_error_switch_chain: "Worldland 네트워크 전환 요청을 완료하지 못했습니다. 메타마스크 팝업을 확인하세요.",
+  wallet_error_unknown: "지갑 연결 중 오류가 발생했습니다. 메타마스크 상태를 확인한 뒤 다시 시도하세요.",
 })
 
 function interpolate(template, vars = {}) {
