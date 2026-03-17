@@ -5,7 +5,6 @@ import { useT } from "../lib/i18n.js"
 import { Button, Notice } from "../components/ui.jsx"
 import AgentCard from "../components/AgentCard.jsx"
 import { AGENT_CATEGORIES, loadMyAgentService, saveAgentService } from "../lib/agentCatalog.js"
-import { requireMetaMaskProvider } from "../lib/wallet.js"
 
 const EMPTY_FORM = {
   serviceName: "",
@@ -27,7 +26,7 @@ const inputClass =
   "h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
 
 export default function AgentServiceRegister() {
-  const { address, lang, connect } = useStore()
+  const { address, lang, signer } = useStore()
   const t = useT(lang)
   const [form, setForm] = useState(EMPTY_FORM)
   const [status, setStatus] = useState("idle")
@@ -83,12 +82,8 @@ export default function AgentServiceRegister() {
   async function handlePublish(event) {
     event.preventDefault()
     if (!address) {
-      try {
-        await connect()
-      } catch (error) {
-        setStatus("error")
-        setMessage(error.message)
-      }
+      setStatus("error")
+      setMessage(t("common_wallet_required"))
       return
     }
 
@@ -96,8 +91,7 @@ export default function AgentServiceRegister() {
     setMessage("")
 
     try {
-      const provider = new ethers.BrowserProvider(requireMetaMaskProvider())
-      const signer = await provider.getSigner()
+      if (!signer) throw new Error(t("common_wallet_required"))
       const payload = {
         name: form.serviceName.trim(),
         serviceName: form.serviceName.trim(),

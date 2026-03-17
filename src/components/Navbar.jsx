@@ -5,16 +5,20 @@ import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { Button, StatusPill } from "./ui.jsx"
 import { shortAddress } from "../lib/chain.js"
+import { listInjectedWallets } from "../lib/wallet.js"
 import SearchBar from "./SearchBar.jsx"
 
 function formatWalletError(error, t) {
   const message = String(error?.reason || error?.message || "").toLowerCase()
   const code = error?.code
 
+  if (code === "WALLET_SELECTION_REQUIRED" || message.includes("wallet selection required")) {
+    return t("wallet_error_pick_wallet")
+  }
   if (message.includes("must has at least one account") || message.includes("wallet must have at least one account")) {
     return t("wallet_error_no_account")
   }
-  if (message.includes("provider not found")) {
+  if (message.includes("provider not found") || message.includes("no compatible wallet provider found")) {
     return t("wallet_error_provider_conflict")
   }
   if (code === -32002 || message.includes("already processing eth_requestaccounts")) {
@@ -40,6 +44,7 @@ export default function Navbar() {
     address,
     isConnecting,
     isCorrectChain,
+    walletName,
     dashboard,
     connect,
     disconnect,
@@ -47,6 +52,8 @@ export default function Navbar() {
   } = useStore()
   const t = useT(lang)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false)
+  const [walletOptions, setWalletOptions] = useState([])
   const lastWalletErrorRef = useRef({ message: "", time: 0 })
 
   const mainNavItems = [
@@ -63,23 +70,39 @@ export default function Navbar() {
     ["/providers", t("nav_providers")],
   ]
 
-  async function handleConnect() {
+  function showWalletError(error) {
+    const message = formatWalletError(error, t)
+    const now = Date.now()
+    if (
+      lastWalletErrorRef.current.message === message &&
+      now - lastWalletErrorRef.current.time < 2500
+    ) {
+      return
+    }
+    lastWalletErrorRef.current = { message, time: now }
+    toast.dismiss("wallet-connect-error")
+    toast.error(message, { id: "wallet-connect-error" })
+  }
+
+  async function runConnect(walletId = null) {
     if (isConnecting) return
     try {
-      await connect()
+      await connect(walletId)
+      setWalletPickerOpen(false)
     } catch (error) {
-      const message = formatWalletError(error, t)
-      const now = Date.now()
-      if (
-        lastWalletErrorRef.current.message === message &&
-        now - lastWalletErrorRef.current.time < 2500
-      ) {
-        return
-      }
-      lastWalletErrorRef.current = { message, time: now }
-      toast.dismiss("wallet-connect-error")
-      toast.error(message, { id: "wallet-connect-error" })
+      showWalletError(error)
     }
+  }
+
+  async function handleConnect() {
+    if (isConnecting) return
+    const wallets = listInjectedWallets()
+    if (wallets.length > 1) {
+      setWalletOptions(wallets)
+      setWalletPickerOpen(true)
+      return
+    }
+    await runConnect(wallets[0]?.id ?? null)
   }
 
   async function handleSwitch() {
@@ -139,7 +162,7 @@ export default function Navbar() {
           {address ? (
             <div className="flex items-center gap-2">
               {isCorrectChain ? (
-                <StatusPill tone="success">{dashboard.currentEpoch ? `Epoch ${dashboard.currentEpoch}` : "Connected"}</StatusPill>
+                <StatusPill tone="success">{dashboard.currentEpoch ? `Epoch ${dashboard.currentEpoch}` : (walletName || "Connected")}</StatusPill>
               ) : (
                 <Button variant="danger" onClick={handleSwitch}>
                   {t("nav_switch_chain")}
@@ -216,6 +239,51 @@ export default function Navbar() {
                 {t("nav_switch_chain")}
               </Button>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {walletPickerOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-xl rounded-[28px] border border-primary/10 bg-[#17111f] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">{t("wallet_modal_eyebrow")}</div>
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-white">{t("wallet_modal_title")}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-400">{t("wallet_modal_subtitle")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWalletPickerOpen(false)}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-primary/10 px-4 text-sm font-semibold text-slate-300 transition hover:border-primary/30 hover:text-white"
+              >
+                {t("wallet_modal_close")}
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {walletOptions.map((wallet) => (
+                <button
+                  key={wallet.id}
+                  type="button"
+                  onClick={() => runConnect(wallet.id)}
+                  className="flex w-full items-center justify-between rounded-3xl border border-primary/10 bg-white/5 px-5 py-4 text-left transition hover:border-primary/30 hover:bg-primary/5"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-primary">
+                      <span className="material-symbols-outlined text-2xl">{wallet.icon}</span>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-white">{wallet.name}</div>
+                      <div className="text-sm text-slate-500">{wallet.id}</div>
+                    </div>
+                  </div>
+                  <span className="inline-flex h-11 items-center rounded-2xl border border-primary/10 px-4 text-sm font-semibold text-slate-200">
+                    {t("wallet_modal_select")}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

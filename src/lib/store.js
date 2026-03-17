@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { ethers } from "ethers"
 import { WORLDLAND, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
 import { FEE_CONFIG, calcRequesterFee } from "./feeConfig.js"
-import { requireMetaMaskProvider } from "./wallet.js"
+import { listInjectedWallets, requireInjectedWallet } from "./wallet.js"
 import {
   ADDRESSES,
   TIMELOCK_ABI,
@@ -109,6 +109,9 @@ const useStore = create((set, get) => ({
   readProvider: null,
   provider: null,
   signer: null,
+  walletProvider: null,
+  walletId: null,
+  walletName: null,
   readContracts: null,
   contracts: null,
   dashboard: { ...INITIAL_DASHBOARD },
@@ -129,14 +132,14 @@ const useStore = create((set, get) => ({
     }
   },
 
-  connect: async () => {
-    const injected = requireMetaMaskProvider()
+  connect: async (walletId = null) => {
     set({ isConnecting: true })
     try {
-      const provider = new ethers.BrowserProvider(injected)
-      const accounts = await injected.request({ method: "eth_requestAccounts", params: [] })
+      const selected = requireInjectedWallet(walletId)
+      const provider = new ethers.BrowserProvider(selected.provider)
+      const accounts = await selected.provider.request({ method: "eth_requestAccounts", params: [] })
       if (!Array.isArray(accounts) || accounts.length === 0) {
-        throw new Error("MetaMask has no available account.")
+        throw new Error("The selected wallet has no available account.")
       }
       const signer = await provider.getSigner()
       const address = await signer.getAddress()
@@ -146,6 +149,9 @@ const useStore = create((set, get) => ({
       set({
         provider,
         signer,
+        walletProvider: selected.provider,
+        walletId: selected.id,
+        walletName: selected.name,
         address,
         chainId,
         isCorrectChain,
@@ -166,6 +172,9 @@ const useStore = create((set, get) => ({
       isCorrectChain: false,
       provider: null,
       signer: null,
+      walletProvider: null,
+      walletId: null,
+      walletName: null,
       contracts: null,
       dashboard: { ...INITIAL_DASHBOARD },
       rewardHistory: [],
@@ -173,7 +182,7 @@ const useStore = create((set, get) => ({
     }),
 
   switchChain: async () => {
-    const injected = requireMetaMaskProvider()
+    const injected = get().walletProvider || requireInjectedWallet(listInjectedWallets()[0]?.id).provider
     try {
       await injected.request({
         method: "wallet_switchEthereumChain",
