@@ -1,5 +1,6 @@
 import { Link, NavLink } from "react-router-dom"
 import { useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { toast } from "react-hot-toast"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
@@ -112,6 +113,69 @@ export default function Navbar() {
       toast.error(formatWalletError(error, t), { id: "wallet-switch-error" })
     }
   }
+
+  const walletModal =
+    walletPickerOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[120] bg-[rgba(4,10,16,0.84)] backdrop-blur-md">
+            <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+              <div className="flex max-h-[calc(100vh-32px)] w-full max-w-2xl flex-col overflow-hidden rounded-[32px] border border-primary/15 bg-[#15111b] shadow-[0_32px_120px_rgba(0,0,0,0.55)] sm:max-h-[calc(100vh-64px)]">
+                <div className="border-b border-white/5 bg-[radial-gradient(circle_at_top,rgba(0,255,180,0.08),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))] px-6 py-5 sm:px-8 sm:py-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/80">{t("wallet_modal_eyebrow")}</div>
+                      <h3 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">{t("wallet_modal_title")}</h3>
+                      <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">{t("wallet_modal_subtitle")}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWalletPickerOpen(false)}
+                      className="inline-flex h-11 items-center justify-center rounded-2xl border border-primary/10 px-4 text-sm font-semibold text-slate-300 transition hover:border-primary/30 hover:text-white"
+                    >
+                      {t("wallet_modal_close")}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+                  <div className="space-y-3">
+                    {walletOptions.map((wallet) => (
+                      <button
+                        key={wallet.id}
+                        type="button"
+                        onClick={() => runConnect(wallet.id)}
+                        className="group flex w-full items-center justify-between rounded-[26px] border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition hover:border-primary/30 hover:bg-primary/[0.06] sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                            {wallet.logo ? (
+                              <img src={wallet.logo} alt="" className="h-9 w-9 rounded-xl object-contain" />
+                            ) : (
+                              <span className="material-symbols-outlined text-[28px]">{wallet.icon}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-lg font-black text-white">{wallet.name}</div>
+                            <div className="truncate text-sm capitalize text-slate-500">{wallet.shortLabel || wallet.id}</div>
+                          </div>
+                        </div>
+                        <span className="ml-4 inline-flex h-11 shrink-0 items-center rounded-2xl border border-primary/15 px-4 text-sm font-semibold text-slate-200 transition group-hover:border-primary/35 group-hover:text-white">
+                          {t("wallet_modal_select")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-white/5 px-6 py-4 text-sm leading-7 text-slate-500 sm:px-8">
+                  {t("wallet_modal_note")}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary/10 bg-[#0f231d]/80 backdrop-blur-md">
@@ -243,65 +307,7 @@ export default function Navbar() {
         </div>
       ) : null}
 
-      {walletPickerOpen ? (
-        <div className="fixed inset-0 z-[70] overflow-y-auto bg-[rgba(4,10,16,0.84)] px-4 py-6 backdrop-blur-md sm:px-6 sm:py-10">
-          <div className="mx-auto flex min-h-full w-full items-start justify-center sm:items-center">
-            <div className="w-full max-w-2xl overflow-hidden rounded-[32px] border border-primary/15 bg-[#15111b] shadow-[0_32px_120px_rgba(0,0,0,0.55)]">
-              <div className="border-b border-white/5 bg-[radial-gradient(circle_at_top,rgba(0,255,180,0.08),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))] px-6 py-5 sm:px-8 sm:py-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary/80">{t("wallet_modal_eyebrow")}</div>
-                    <h3 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">{t("wallet_modal_title")}</h3>
-                    <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">{t("wallet_modal_subtitle")}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setWalletPickerOpen(false)}
-                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-primary/10 px-4 text-sm font-semibold text-slate-300 transition hover:border-primary/30 hover:text-white"
-                  >
-                    {t("wallet_modal_close")}
-                  </button>
-                </div>
-              </div>
-
-              <div className="max-h-[calc(100vh-180px)] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-                <div className="space-y-3">
-                  {walletOptions.map((wallet) => (
-                    <button
-                      key={wallet.id}
-                      type="button"
-                      onClick={() => runConnect(wallet.id)}
-                      className="group flex w-full items-center justify-between rounded-[26px] border border-white/8 bg-white/[0.03] px-4 py-4 text-left transition hover:border-primary/30 hover:bg-primary/[0.06] sm:px-5"
-                    >
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                          {wallet.logo ? (
-                            <img src={wallet.logo} alt="" className="h-9 w-9 rounded-xl object-contain" />
-                          ) : (
-                            <span className="material-symbols-outlined text-[28px]">{wallet.icon}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="truncate text-lg font-black text-white">{wallet.name}</div>
-                          <div className="truncate text-sm capitalize text-slate-500">{wallet.shortLabel || wallet.id}</div>
-                        </div>
-                      </div>
-                      <span className="ml-4 inline-flex h-11 shrink-0 items-center rounded-2xl border border-primary/15 px-4 text-sm font-semibold text-slate-200 transition group-hover:border-primary/35 group-hover:text-white">
-                        {t("wallet_modal_select")}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            <div>
-                <div className="border-t border-white/5 px-6 py-4 text-sm leading-7 text-slate-500 sm:px-8">
-                  {t("wallet_modal_note")}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {walletModal}
     </header>
   )
 }
