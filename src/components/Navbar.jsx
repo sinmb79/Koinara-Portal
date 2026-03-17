@@ -14,6 +14,9 @@ function formatWalletError(error, t) {
   if (message.includes("must has at least one account") || message.includes("wallet must have at least one account")) {
     return t("wallet_error_no_account")
   }
+  if (message.includes("provider not found")) {
+    return t("wallet_error_provider_conflict")
+  }
   if (code === -32002 || message.includes("already processing eth_requestaccounts")) {
     return t("wallet_error_pending")
   }

@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { ethers } from "ethers"
 import { WORLDLAND, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
 import { FEE_CONFIG, calcRequesterFee } from "./feeConfig.js"
+import { requireMetaMaskProvider } from "./wallet.js"
 import {
   ADDRESSES,
   TIMELOCK_ABI,
@@ -129,11 +130,14 @@ const useStore = create((set, get) => ({
   },
 
   connect: async () => {
-    if (!window.ethereum) throw new Error("MetaMask is required.")
+    const injected = requireMetaMaskProvider()
     set({ isConnecting: true })
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      await provider.send("eth_requestAccounts", [])
+      const provider = new ethers.BrowserProvider(injected)
+      const accounts = await injected.request({ method: "eth_requestAccounts", params: [] })
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        throw new Error("MetaMask has no available account.")
+      }
       const signer = await provider.getSigner()
       const address = await signer.getAddress()
       const network = await provider.getNetwork()
@@ -169,15 +173,15 @@ const useStore = create((set, get) => ({
     }),
 
   switchChain: async () => {
-    if (!window.ethereum) throw new Error("MetaMask is required.")
+    const injected = requireMetaMaskProvider()
     try {
-      await window.ethereum.request({
+      await injected.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: WORLDLAND.chainIdHex }],
       })
     } catch (error) {
       if (error.code === 4902) {
-        await window.ethereum.request({
+        await injected.request({
           method: "wallet_addEthereumChain",
           params: [{
             chainId: WORLDLAND.chainIdHex,

@@ -1408,6 +1408,11 @@ Object.assign(translations.ko, {
 
 Object.assign(translations.en, {
   home_hero_title: "Hire AI agents.",
+  wallet_error_provider_conflict: "MetaMask was not detected as the active wallet. Disable other wallet extensions for this site or open the MetaMask popup and try again.",
+})
+
+Object.assign(translations.ko, {
+  wallet_error_provider_conflict: "활성 지갑으로 MetaMask가 감지되지 않았습니다. 이 사이트에서 다른 지갑 확장을 잠시 끄거나 MetaMask 팝업을 확인한 뒤 다시 시도하세요.",
 })
 
 function interpolate(template, vars = {}) {

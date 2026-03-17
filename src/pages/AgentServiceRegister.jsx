@@ -5,6 +5,7 @@ import { useT } from "../lib/i18n.js"
 import { Button, Notice } from "../components/ui.jsx"
 import AgentCard from "../components/AgentCard.jsx"
 import { AGENT_CATEGORIES, loadMyAgentService, saveAgentService } from "../lib/agentCatalog.js"
+import { requireMetaMaskProvider } from "../lib/wallet.js"
 
 const EMPTY_FORM = {
   serviceName: "",
@@ -95,8 +96,7 @@ export default function AgentServiceRegister() {
     setMessage("")
 
     try {
-      if (!window.ethereum) throw new Error("MetaMask is required.")
-      const provider = new ethers.BrowserProvider(window.ethereum)
+      const provider = new ethers.BrowserProvider(requireMetaMaskProvider())
       const signer = await provider.getSigner()
       const payload = {
         name: form.serviceName.trim(),
