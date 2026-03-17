@@ -5,7 +5,7 @@ import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { Button, StatusPill } from "./ui.jsx"
 import { shortAddress } from "../lib/chain.js"
-import { listInjectedWallets } from "../lib/wallet.js"
+import { discoverInjectedWallets } from "../lib/wallet.js"
 import SearchBar from "./SearchBar.jsx"
 
 function formatWalletError(error, t) {
@@ -96,7 +96,7 @@ export default function Navbar() {
 
   async function handleConnect() {
     if (isConnecting) return
-    const wallets = listInjectedWallets()
+    const wallets = await discoverInjectedWallets()
     if (wallets.length > 1) {
       setWalletOptions(wallets)
       setWalletPickerOpen(true)

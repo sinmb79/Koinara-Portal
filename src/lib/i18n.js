@@ -1448,6 +1448,42 @@ Object.assign(translations.ko, {
   wallet_error_provider_conflict: "호환되는 EVM 지갑을 찾지 못했습니다. 브라우저 지갑 확장을 설치하거나 활성화한 뒤 다시 시도하세요.",
 })
 
+Object.assign(translations.en, {
+  nav_connect: "Connect Wallet",
+  nav_connecting: "Connecting Wallet",
+  wallet_modal_eyebrow: "Wallet Access",
+  wallet_modal_title: "Choose wallet",
+  wallet_modal_subtitle: "Detected compatible browser wallets. Choose one to connect.",
+  wallet_modal_close: "Close",
+  wallet_modal_select: "Select",
+  wallet_error_pick_wallet: "Choose which wallet to use first.",
+  wallet_error_no_account: "The selected wallet has no unlocked account. Open the wallet and unlock or create an account, then try again.",
+  wallet_error_provider_conflict: "No compatible EVM wallet was detected. Install or enable a browser wallet and try again.",
+  wallet_error_pending: "A wallet connection request is already open. Check the wallet popup first.",
+  wallet_error_rejected: "The wallet connection request was rejected. Check the wallet popup and try again.",
+  wallet_error_missing_extension: "No compatible EVM wallet extension was detected.",
+  wallet_error_switch_chain: "Could not switch to Worldland. Check the wallet popup and try again.",
+  wallet_error_unknown: "Wallet connection failed. Check your wallet and try again.",
+})
+
+Object.assign(translations.ko, {
+  nav_connect: "지갑 연결",
+  nav_connecting: "지갑 연결 중",
+  wallet_modal_eyebrow: "지갑 선택",
+  wallet_modal_title: "지갑을 선택하세요",
+  wallet_modal_subtitle: "감지된 EVM 지갑 중에서 연결할 지갑을 고르세요.",
+  wallet_modal_close: "닫기",
+  wallet_modal_select: "선택",
+  wallet_error_pick_wallet: "먼저 연결할 지갑을 선택하세요.",
+  wallet_error_no_account: "선택한 지갑에 잠금 해제된 계정이 없습니다. 지갑을 열어 계정을 잠금 해제하거나 생성한 뒤 다시 시도하세요.",
+  wallet_error_provider_conflict: "호환되는 EVM 지갑을 찾지 못했습니다. 브라우저 지갑 확장을 설치하거나 활성화한 뒤 다시 시도하세요.",
+  wallet_error_pending: "지갑 연결 요청이 이미 열려 있습니다. 지갑 팝업을 먼저 확인하세요.",
+  wallet_error_rejected: "지갑 연결 요청이 취소되었습니다. 지갑 팝업을 확인한 뒤 다시 시도하세요.",
+  wallet_error_missing_extension: "호환되는 EVM 지갑 확장이 감지되지 않았습니다.",
+  wallet_error_switch_chain: "Worldland 전환 요청을 완료하지 못했습니다. 지갑 팝업을 확인하세요.",
+  wallet_error_unknown: "지갑 연결 중 오류가 발생했습니다. 지갑 상태를 확인한 뒤 다시 시도하세요.",
+})
+
 function interpolate(template, vars = {}) {
   return Object.entries(vars).reduce(
     (acc, [key, value]) => acc.replaceAll(`{${key}}`, String(value)),

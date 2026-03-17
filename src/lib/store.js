@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { ethers } from "ethers"
 import { WORLDLAND, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
 import { FEE_CONFIG, calcRequesterFee } from "./feeConfig.js"
-import { listInjectedWallets, requireInjectedWallet } from "./wallet.js"
+import { discoverInjectedWallets, listInjectedWallets, requireInjectedWallet } from "./wallet.js"
 import {
   ADDRESSES,
   TIMELOCK_ABI,
@@ -135,7 +135,8 @@ const useStore = create((set, get) => ({
   connect: async (walletId = null) => {
     set({ isConnecting: true })
     try {
-      const selected = requireInjectedWallet(walletId)
+      const wallets = await discoverInjectedWallets()
+      const selected = requireInjectedWallet(walletId, wallets)
       const provider = new ethers.BrowserProvider(selected.provider)
       const accounts = await selected.provider.request({ method: "eth_requestAccounts", params: [] })
       if (!Array.isArray(accounts) || accounts.length === 0) {
@@ -182,7 +183,8 @@ const useStore = create((set, get) => ({
     }),
 
   switchChain: async () => {
-    const injected = get().walletProvider || requireInjectedWallet(listInjectedWallets()[0]?.id).provider
+    const wallets = listInjectedWallets()
+    const injected = get().walletProvider || requireInjectedWallet(wallets[0]?.id, wallets).provider
     try {
       await injected.request({
         method: "wallet_switchEthereumChain",

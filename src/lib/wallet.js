@@ -31,6 +31,9 @@ const DETECTORS = [
   },
 ]
 
+const EIP6963_ANNOUNCE_EVENT = "eip6963:announceProvider"
+const EIP6963_REQUEST_EVENT = "eip6963:requestProvider"
+
 function getInjectedProviders() {
   if (typeof window === "undefined") return []
   const injected = window.ethereum
@@ -38,13 +41,14 @@ function getInjectedProviders() {
   return Array.isArray(injected.providers) ? injected.providers : [injected]
 }
 
-function detectWalletMeta(provider, index) {
+function detectWalletMeta(provider, index, info = null) {
   const matched = DETECTORS.find((item) => item.test(provider))
   if (matched) {
     return matched
   }
 
   const label =
+    info?.name ||
     provider?.info?.name ||
     provider?.providerInfo?.name ||
     provider?.name ||
@@ -52,6 +56,7 @@ function detectWalletMeta(provider, index) {
 
   return {
     id: String(
+      info?.rdns ||
       provider?.info?.rdns ||
       provider?.providerInfo?.rdns ||
       provider?.rdns ||
@@ -62,26 +67,65 @@ function detectWalletMeta(provider, index) {
   }
 }
 
-export function listInjectedWallets() {
+function mergeWallets(wallets) {
   const seen = new Set()
-  const wallets = []
+  const merged = []
 
-  getInjectedProviders().forEach((provider, index) => {
-    const meta = detectWalletMeta(provider, index)
-    const key = `${meta.id}:${provider === window.ethereum ? "root" : index}`
+  wallets.forEach((wallet, index) => {
+    const key = `${wallet.id}:${wallet.rdns || index}`
     if (seen.has(key)) return
     seen.add(key)
-    wallets.push({
-      ...meta,
-      provider,
-    })
+    merged.push(wallet)
   })
 
-  return wallets
+  return merged
 }
 
-export function requireInjectedWallet(walletId = null) {
-  const wallets = listInjectedWallets()
+export function listInjectedWallets() {
+  return mergeWallets(
+    getInjectedProviders().map((provider, index) => {
+      const meta = detectWalletMeta(provider, index)
+      return {
+        ...meta,
+        provider,
+        rdns: provider?.info?.rdns || provider?.providerInfo?.rdns || provider?.rdns || meta.id,
+      }
+    })
+  )
+}
+
+export async function discoverInjectedWallets({ timeoutMs = 350 } = {}) {
+  if (typeof window === "undefined") return []
+
+  const discovered = [...listInjectedWallets()]
+  const addWallet = (provider, info = null) => {
+    if (!provider) return
+    const meta = detectWalletMeta(provider, discovered.length, info)
+    discovered.push({
+      ...meta,
+      provider,
+      rdns: info?.rdns || provider?.info?.rdns || provider?.providerInfo?.rdns || provider?.rdns || meta.id,
+    })
+  }
+
+  const handleAnnounce = (event) => {
+    const provider = event?.detail?.provider
+    const info = event?.detail?.info || null
+    addWallet(provider, info)
+  }
+
+  window.addEventListener(EIP6963_ANNOUNCE_EVENT, handleAnnounce)
+  try {
+    window.dispatchEvent(new Event(EIP6963_REQUEST_EVENT))
+    await new Promise((resolve) => window.setTimeout(resolve, timeoutMs))
+  } finally {
+    window.removeEventListener(EIP6963_ANNOUNCE_EVENT, handleAnnounce)
+  }
+
+  return mergeWallets(discovered)
+}
+
+export function requireInjectedWallet(walletId = null, wallets = listInjectedWallets()) {
   if (wallets.length === 0) {
     throw new Error("No compatible wallet provider found.")
   }
