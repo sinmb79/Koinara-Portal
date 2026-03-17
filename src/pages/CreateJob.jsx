@@ -415,6 +415,24 @@ export default function CreateJob() {
                   />
                 </label>
               </div>
+
+              <div className="flex flex-col gap-3 rounded-2xl border border-primary/10 bg-[#0d1b17]/80 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="text-sm leading-6 text-slate-400">
+                  {address
+                    ? isCorrectChain
+                      ? t("create_registry_note")
+                      : t("common_wrong_chain")
+                    : t("common_wallet_required")}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="inline-flex h-12 min-w-[180px] items-center justify-center rounded-2xl bg-primary px-5 text-sm font-black uppercase tracking-[0.18em] text-[#0b2019] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {loading ? t("common_loading") : t("create_submit")}
+                </button>
+              </div>
             </div>
           </section>
         </div>
