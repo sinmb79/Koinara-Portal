@@ -1,4 +1,3 @@
-import { NavLink } from "react-router-dom"
 import { addrUrl, txUrl, shortAddress } from "../lib/chain.js"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
@@ -11,39 +10,6 @@ export function Button({ children, variant = "primary", full = false, loading = 
       {loading ? <span className="spinner" style={{ width: 18, height: 18 }} /> : null}
       {children}
     </button>
-  )
-}
-
-export function Eyebrow({ children }) {
-  return <div className="eyebrow">{children}</div>
-}
-
-export function Panel({ title, subtitle, action, children }) {
-  return (
-    <section className="panel">
-      <div className="panel-body">
-        {(title || subtitle || action) && (
-          <header className="panel-header">
-            <div>
-              {title ? <h2 className="panel-title">{title}</h2> : null}
-              {subtitle ? <p className="panel-subtitle">{subtitle}</p> : null}
-            </div>
-            {action}
-          </header>
-        )}
-        {children}
-      </div>
-    </section>
-  )
-}
-
-export function MetricCard({ label, value, footnote }) {
-  return (
-    <div className="metric-card">
-      <span className="metric-label">{label}</span>
-      <div className="metric-value">{value}</div>
-      {footnote ? <div className="metric-footnote">{footnote}</div> : null}
-    </div>
   )
 }
 
@@ -102,27 +68,6 @@ export function LoadingState({ label }) {
 
 export function Notice({ children }) {
   return <div className="notice">{children}</div>
-}
-
-export function DashboardTabs() {
-  const { lang } = useStore()
-  const t = useT(lang)
-  const items = [
-    ["/dashboard", t("tab_overview")],
-    ["/dashboard/bond", t("tab_bond")],
-    ["/dashboard/register", t("tab_register")],
-    ["/dashboard/rewards", t("tab_rewards")],
-  ]
-
-  return (
-    <div className="dashboard-tabs">
-      {items.map(([to, label]) => (
-        <NavLink key={to} to={to} className={({ isActive }) => `dashboard-tab${isActive ? " active" : ""}`}>
-          {label}
-        </NavLink>
-      ))}
-    </div>
-  )
 }
 
 export function JobStatePill({ state }) {
