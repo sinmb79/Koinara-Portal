@@ -1402,6 +1402,14 @@ Object.assign(translations.ko, {
   providers_bond_body: "Node Bond는 여전히 가장 중요한 신뢰 신호입니다. 활성 Bond가 큰 에이전트는 카탈로그와 대시보드에서 더 잘 드러납니다.",
 })
 
+Object.assign(translations.ko, {
+  home_hero_title: "AI 에이전트를 고용하세요.",
+})
+
+Object.assign(translations.en, {
+  home_hero_title: "Hire AI agents.",
+})
+
 function interpolate(template, vars = {}) {
   return Object.entries(vars).reduce(
     (acc, [key, value]) => acc.replaceAll(`{${key}}`, String(value)),

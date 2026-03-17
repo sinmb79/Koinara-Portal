@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { getPromoPhaseLabelKey } from "../lib/feeConfig.js"
-import { Eyebrow, Panel, JobStatePill, JobTypePill, AddressLink, EmptyState, StatusPill } from "../components/ui.jsx"
+import { JobStatePill, JobTypePill, AddressLink, EmptyState, StatusPill } from "../components/ui.jsx"
 import { formatDateTime, formatTokenAmount } from "../lib/chain.js"
 
 export default function JobDetail() {
@@ -21,7 +21,11 @@ export default function JobDetail() {
       { key: "created", label: t("timeline_created"), complete: true },
       { key: "submitted", label: t("timeline_submitted"), complete: Boolean(job.submission) },
       { key: "verified", label: t("timeline_verified"), complete: Boolean(record && record.approvals > 0) },
-      { key: "accepted", label: rejected ? t("timeline_rejected") : t("timeline_accepted"), complete: rejected || state >= 4 || Boolean(record?.verificationPass) },
+      {
+        key: "accepted",
+        label: rejected ? t("timeline_rejected") : t("timeline_accepted"),
+        complete: rejected || state >= 4 || Boolean(record?.verificationPass),
+      },
       { key: "settled", label: t("timeline_settled"), complete: state === 6 },
     ]
   }, [job, t])
@@ -37,69 +41,103 @@ export default function JobDetail() {
     : []
 
   return (
-    <div className="page-shell">
-      <Eyebrow>{t("job_detail_tag")}</Eyebrow>
-      <h1 className="page-title">{t("job_detail_title")}</h1>
-      <p className="page-subtitle">{t("job_detail_subtitle", { id })}</p>
+    <div className="page-shell space-y-8">
+      <section className="overflow-hidden rounded-[32px] border border-primary/10 bg-[radial-gradient(circle_at_top_left,rgba(0,255,180,0.12),transparent_32%),linear-gradient(180deg,rgba(19,42,34,0.96),rgba(8,14,13,0.98))] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)] lg:p-10">
+        <div className="mb-4 inline-flex rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+          {t("job_detail_tag")}
+        </div>
+        <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t("job_detail_title")}</h1>
+        <p className="mt-4 text-lg leading-8 text-slate-300">{t("job_detail_subtitle", { id })}</p>
+      </section>
 
       {!job ? (
         <EmptyState title={t("job_detail_not_found")} description={t("common_no_data")} />
       ) : (
-        <div className="two-col-grid" style={{ marginTop: 28 }}>
-          <Panel title={t("job_detail_timeline")} subtitle={t("job_detail_timeline_note")}>
-            <div style={{ display: "grid", gap: 18 }}>
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${timeline.length}, 1fr)`, gap: 12 }}>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <PanelCard title={t("job_detail_timeline")} subtitle={t("job_detail_timeline_note")}>
+            <div className="space-y-6">
+              <div
+                className="grid gap-3"
+                style={{ gridTemplateColumns: `repeat(${timeline.length}, minmax(0, 1fr))` }}
+              >
                 {timeline.map((step, index) => (
-                  <div key={step.key} style={{ display: "grid", gap: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div key={step.key} className="grid gap-3">
+                    <div className="flex items-center gap-2">
                       <div
-                        style={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: 999,
-                          background: step.complete ? "var(--brand-neon-mint)" : "rgba(122,140,173,0.25)",
-                          boxShadow: step.complete ? "0 0 18px rgba(0,255,180,0.3)" : "none",
-                          flexShrink: 0,
-                        }}
+                        className={`h-4 w-4 shrink-0 rounded-full ${
+                          step.complete ? "bg-primary shadow-[0_0_18px_rgba(0,255,180,0.35)]" : "bg-slate-600"
+                        }`}
                       />
                       {index < timeline.length - 1 ? (
-                        <div style={{ flex: 1, height: 2, background: step.complete ? "rgba(0,255,180,0.35)" : "rgba(122,140,173,0.18)" }} />
+                        <div className={`h-0.5 flex-1 ${step.complete ? "bg-primary/35" : "bg-slate-700"}`} />
                       ) : null}
                     </div>
-                    <div style={{ fontSize: 13, color: step.complete ? "var(--text-primary)" : "var(--text-secondary)" }}>{step.label}</div>
+                    <div className={`text-sm ${step.complete ? "text-white" : "text-slate-500"}`}>{step.label}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="value-list">
-                <div className="value-row"><span className="subtle">{t("job_detail_state")}</span><JobStatePill state={job.state} /></div>
-                <div className="value-row"><span className="subtle">{t("job_detail_type")}</span><JobTypePill type={job.jobType} /></div>
-                <div className="value-row"><span className="subtle">{t("job_detail_deadline")}</span><span>{formatDateTime(job.deadline)}</span></div>
-                <div className="value-row"><span className="subtle">{t("job_detail_requester")}</span><AddressLink address={job.creator} /></div>
+              <div className="grid gap-3">
+                <ValueRow label={t("job_detail_state")} value={<JobStatePill state={job.state} />} />
+                <ValueRow label={t("job_detail_type")} value={<JobTypePill type={job.jobType} />} />
+                <ValueRow label={t("job_detail_deadline")} value={formatDateTime(job.deadline)} />
+                <ValueRow label={t("job_detail_requester")} value={<AddressLink address={job.creator} />} />
               </div>
             </div>
-          </Panel>
+          </PanelCard>
 
-          <Panel title={t("job_detail_submission")} subtitle={t("job_detail_submission_note")}>
+          <PanelCard title={t("job_detail_submission")} subtitle={t("job_detail_submission_note")}>
             {!job.submission && !job.verifierRecord ? (
               <EmptyState title={t("job_detail_no_submission")} description={t("common_no_data")} />
             ) : (
-              <div style={{ display: "grid", gap: 18 }}>
-                <div className="value-list">
-                  <div className="value-row"><span className="subtle">{t("job_detail_provider")}</span><AddressLink address={job.submission?.provider || job.verifierRecord?.provider} /></div>
-                  <div className="value-row"><span className="subtle">{t("job_detail_submitted_at")}</span><span>{job.submission?.submittedAt ? formatDateTime(job.submission.submittedAt) : job.verifierRecord?.submittedAt ? formatDateTime(job.verifierRecord.submittedAt) : "-"}</span></div>
-                  <div className="value-row"><span className="subtle">{t("job_detail_response_hash")}</span><span className="mono subtle">{job.submission?.responseHash || job.verifierRecord?.responseHash || "-"}</span></div>
-                  <div className="value-row"><span className="subtle">{t("job_detail_approvals")}</span><span>{job.verifierRecord ? `${job.verifierRecord.approvals}` : "-"}</span></div>
-                  <div className="value-row"><span className="subtle">{t("job_detail_quorum")}</span><span>{job.verifierRecord ? `${job.verifierRecord.quorum}` : "-"}</span></div>
-                  <div className="value-row"><span className="subtle">{t("job_detail_finalized_at")}</span><span>{job.verifierRecord?.finalizedAt ? formatDateTime(job.verifierRecord.finalizedAt) : "-"}</span></div>
-                  <div className="value-row"><span className="subtle">{t("job_detail_poi_hash")}</span><span className="mono subtle">{job.verifierRecord?.poiHash && job.verifierRecord.poiHash !== "0x0000000000000000000000000000000000000000000000000000000000000000" ? job.verifierRecord.poiHash : "-"}</span></div>
+              <div className="space-y-6">
+                <div className="grid gap-3">
+                  <ValueRow
+                    label={t("job_detail_provider")}
+                    value={<AddressLink address={job.submission?.provider || job.verifierRecord?.provider} />}
+                  />
+                  <ValueRow
+                    label={t("job_detail_submitted_at")}
+                    value={
+                      job.submission?.submittedAt
+                        ? formatDateTime(job.submission.submittedAt)
+                        : job.verifierRecord?.submittedAt
+                          ? formatDateTime(job.verifierRecord.submittedAt)
+                          : "-"
+                    }
+                  />
+                  <ValueRow
+                    label={t("job_detail_response_hash")}
+                    value={
+                      <span className="font-mono text-xs text-slate-500">
+                        {job.submission?.responseHash || job.verifierRecord?.responseHash || "-"}
+                      </span>
+                    }
+                  />
+                  <ValueRow label={t("job_detail_approvals")} value={job.verifierRecord ? `${job.verifierRecord.approvals}` : "-"} />
+                  <ValueRow label={t("job_detail_quorum")} value={job.verifierRecord ? `${job.verifierRecord.quorum}` : "-"} />
+                  <ValueRow
+                    label={t("job_detail_finalized_at")}
+                    value={job.verifierRecord?.finalizedAt ? formatDateTime(job.verifierRecord.finalizedAt) : "-"}
+                  />
+                  <ValueRow
+                    label={t("job_detail_poi_hash")}
+                    value={
+                      <span className="font-mono text-xs text-slate-500">
+                        {job.verifierRecord?.poiHash &&
+                        job.verifierRecord.poiHash !== "0x0000000000000000000000000000000000000000000000000000000000000000"
+                          ? job.verifierRecord.poiHash
+                          : "-"}
+                      </span>
+                    }
+                  />
                 </div>
 
                 {job.verifierRecord ? (
                   <>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <div className="panel-subtitle" style={{ marginBottom: 0 }}>{t("job_detail_checks")}</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    <div className="space-y-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{t("job_detail_checks")}</div>
+                      <div className="flex flex-wrap gap-2.5">
                         {checks.map(([key, label]) => (
                           <StatusPill key={key} tone={job.verifierRecord[key] ? "success" : "danger"}>
                             {label}: {job.verifierRecord[key] ? t("job_detail_check_pass") : t("job_detail_check_fail")}
@@ -108,10 +146,12 @@ export default function JobDetail() {
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <div className="panel-subtitle" style={{ marginBottom: 0 }}>{t("job_detail_approved_verifiers")}</div>
+                    <div className="space-y-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        {t("job_detail_approved_verifiers")}
+                      </div>
                       {job.approvedVerifiers?.length ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        <div className="flex flex-wrap gap-2.5">
                           {job.approvedVerifiers.map((verifier) => (
                             <StatusPill key={verifier} tone="info">
                               <AddressLink address={verifier} />
@@ -126,23 +166,63 @@ export default function JobDetail() {
                 ) : null}
               </div>
             )}
-          </Panel>
+          </PanelCard>
 
-          <Panel title={t("job_detail_rewards")} subtitle={t("job_detail_rewards_note")}>
-            <div className="value-list">
-              <div className="value-row"><span className="subtle">{t("job_detail_premium")}</span><span>{formatTokenAmount(job.premiumReward, 4)} WLC</span></div>
-              <div className="value-row"><span className="subtle">{t("job_detail_portal_fee")}</span><span>{job.portalFee?.feeWei ? `${formatTokenAmount(job.portalFee.feeWei, 4)} WLC` : "-"}</span></div>
-              <div className="value-row"><span className="subtle">{t("job_detail_portal_total")}</span><span>{job.portalFee?.totalWei ? `${formatTokenAmount(job.portalFee.totalWei, 4)} WLC` : "-"}</span></div>
-              <div className="value-row"><span className="subtle">{t("job_detail_portal_phase")}</span><span>{job.portalFee?.phaseName ? t(getPromoPhaseLabelKey(job.portalFee.phaseName)) : "-"}</span></div>
-              <div className="value-row"><span className="subtle">{t("job_detail_provider_reward")}</span><span>{job.rewardBreakdown ? `${formatTokenAmount(job.rewardBreakdown.providerReward, 2)} KOIN` : "-"}</span></div>
-              <div className="value-row"><span className="subtle">{t("job_detail_verifier_reward_total")}</span><span>{job.rewardBreakdown ? `${formatTokenAmount(job.rewardBreakdown.verifierRewardTotal, 2)} KOIN` : "-"}</span></div>
+          <PanelCard title={t("job_detail_rewards")} subtitle={t("job_detail_rewards_note")}>
+            <div className="space-y-4">
+              <div className="grid gap-3">
+                <ValueRow label={t("job_detail_premium")} value={`${formatTokenAmount(job.premiumReward, 4)} WLC`} />
+                <ValueRow
+                  label={t("job_detail_portal_fee")}
+                  value={job.portalFee?.feeWei ? `${formatTokenAmount(job.portalFee.feeWei, 4)} WLC` : "-"}
+                />
+                <ValueRow
+                  label={t("job_detail_portal_total")}
+                  value={job.portalFee?.totalWei ? `${formatTokenAmount(job.portalFee.totalWei, 4)} WLC` : "-"}
+                />
+                <ValueRow
+                  label={t("job_detail_portal_phase")}
+                  value={job.portalFee?.phaseName ? t(getPromoPhaseLabelKey(job.portalFee.phaseName)) : "-"}
+                />
+                <ValueRow
+                  label={t("job_detail_provider_reward")}
+                  value={job.rewardBreakdown ? `${formatTokenAmount(job.rewardBreakdown.providerReward, 2)} KOIN` : "-"}
+                />
+                <ValueRow
+                  label={t("job_detail_verifier_reward_total")}
+                  value={
+                    job.rewardBreakdown ? `${formatTokenAmount(job.rewardBreakdown.verifierRewardTotal, 2)} KOIN` : "-"
+                  }
+                />
+              </div>
+              <div className="rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-slate-300">
+                {t("job_detail_portal_fee_note")}
+              </div>
             </div>
-            <div style={{ marginTop: 16 }}>
-              <StatusPill tone="dim">{t("job_detail_portal_fee_note")}</StatusPill>
-            </div>
-          </Panel>
+          </PanelCard>
         </div>
       )}
+    </div>
+  )
+}
+
+function PanelCard({ title, subtitle, children }) {
+  return (
+    <section className="overflow-hidden rounded-[28px] border border-primary/10 bg-white/5 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+      <div className="border-b border-white/5 px-6 py-5">
+        <h2 className="text-xl font-black text-white">{title}</h2>
+        {subtitle ? <p className="mt-2 text-sm leading-7 text-slate-400">{subtitle}</p> : null}
+      </div>
+      <div className="p-6">{children}</div>
+    </section>
+  )
+}
+
+function ValueRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/5 bg-[#0b1713]/60 px-4 py-4">
+      <span className="text-sm text-slate-400">{label}</span>
+      <span className="text-sm font-semibold text-white">{value}</span>
     </div>
   )
 }

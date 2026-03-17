@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "react-hot-toast"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
@@ -44,6 +44,7 @@ export default function Navbar() {
   } = useStore()
   const t = useT(lang)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const lastWalletErrorRef = useRef({ message: "", time: 0 })
 
   const mainNavItems = [
     ["/", t("nav_home")],
@@ -64,7 +65,17 @@ export default function Navbar() {
     try {
       await connect()
     } catch (error) {
-      toast.error(formatWalletError(error, t), { id: "wallet-connect-error" })
+      const message = formatWalletError(error, t)
+      const now = Date.now()
+      if (
+        lastWalletErrorRef.current.message === message &&
+        now - lastWalletErrorRef.current.time < 2500
+      ) {
+        return
+      }
+      lastWalletErrorRef.current = { message, time: now }
+      toast.dismiss("wallet-connect-error")
+      toast.error(message, { id: "wallet-connect-error" })
     }
   }
 
@@ -82,7 +93,7 @@ export default function Navbar() {
         <div className="flex min-w-0 items-center gap-6">
           <Link to="/" className="flex items-center gap-3 text-primary">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
-              <img className="h-8 w-8 scale-[1.7] object-contain" src="/logo-primary.png" alt="Koinara" />
+              <img className="h-7 w-7 object-contain" src="/koin-logo-primary.png" alt="Koinara" />
             </div>
             <div className="min-w-0">
               <div className="truncate text-lg font-black tracking-tight text-slate-100">{t("brand_title")}</div>
