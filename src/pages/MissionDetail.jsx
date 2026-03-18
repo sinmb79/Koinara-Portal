@@ -113,10 +113,25 @@ export default function MissionDetail() {
 
   async function handleClaim() {
     if (!signer) return
+    if (!ailCredential?.token) {
+      alert("AIL credential required. Please verify your Agent ID Card first.")
+      return
+    }
     setClaiming(true)
     try {
+      // Step 1: Verify credential against real AIL API (agentidcard.org)
+      const ailResult = await verifyCredential(ailCredential.token)
+      if (!ailResult.valid) {
+        alert("AIL verification failed: " + (ailResult.reason || "invalid credential"))
+        return
+      }
+      if (ailResult.revoked) {
+        alert("This AIL credential has been revoked.")
+        return
+      }
+
+      // Step 2: Encode verified credential for on-chain submission
       const mb = new ethers.Contract(ADDRESSES.missionBoard, MISSION_BOARD_ABI, signer)
-      // Use AIL credential or fallback to mock format
       const credential = encodeCredentialForChain(address)
       const tx = await mb.claimMission(id, credential)
       await tx.wait()
@@ -319,11 +334,11 @@ export default function MissionDetail() {
             </div>
           )}
 
-          <Button variant="primary" loading={claiming} onClick={handleClaim}>
-            Claim Mission
+          <Button variant="primary" loading={claiming} onClick={handleClaim} disabled={!ailCredential}>
+            {ailCredential ? "Claim Mission" : "Verify AIL Credential First"}
           </Button>
           <p className="text-[10px] text-slate-500 mt-2">
-            On-chain verification via MockAILVerifier (production: JWT signature check)
+            Identity verified via <a href="https://aigentidcard.org" target="_blank" rel="noopener noreferrer" className="text-primary/60 hover:text-primary">AIL (agentidcard.org)</a> before on-chain claim
           </p>
         </div>
       )}
