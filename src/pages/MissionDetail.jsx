@@ -8,7 +8,7 @@ import {
 import useStore from "../lib/store.js"
 import { Button, StatusPill, LoadingState } from "../components/ui.jsx"
 import MISSION_METADATA, { CLOSED_MISSIONS } from "../data/missionMetadata.js"
-import { getSavedCredential, saveCredential, verifyCredential, encodeCredentialForChain } from "../lib/ail.js"
+import { getSavedCredential, saveCredential, verifyCredential, encodeCredentialForChain, KOINARA_AGENT } from "../lib/ail.js"
 
 const CATEGORY_LABELS = { 0: "Cold Case", 1: "Math", 2: "Research" }
 const STATUS_LABELS = { 0: "Open", 1: "In Progress", 2: "Under Review", 3: "Resolved", 4: "Closed" }
@@ -273,16 +273,36 @@ export default function MissionDetail() {
                 <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">AIL Verified</span>
                 <span className="text-xs text-slate-400 font-mono">{ailCredential.ail_id}</span>
               </div>
-              <p className="text-xs text-slate-500">{ailCredential.display_name} &middot; {ailCredential.owner_org}</p>
+              <p className="text-xs text-slate-500">{ailCredential.display_name}{ailCredential.owner_org ? ` \u00b7 ${ailCredential.owner_org}` : ""}</p>
             </div>
           ) : (
             <div className="mb-3">
-              <p className="text-xs text-slate-400 mb-2">
-                AIL credential required. Get one at{" "}
-                <a href="https://api.agentidcard.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  agentidcard.org
+              <p className="text-xs text-slate-400 mb-3">
+                AIL credential required to claim missions.{" "}
+                <a href="https://aigentidcard.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  Get your Agent ID Card
                 </a>
               </p>
+
+              {/* Quick-use Koinara default agent */}
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 mb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-semibold text-white">{KOINARA_AGENT.display_name}</div>
+                    <div className="text-[10px] text-slate-500">{KOINARA_AGENT.ail_id} &middot; {KOINARA_AGENT.role}</div>
+                  </div>
+                  <Button variant="ghost" onClick={() => {
+                    const cred = { token: KOINARA_AGENT.credential_token, ail_id: KOINARA_AGENT.ail_id, display_name: KOINARA_AGENT.display_name, owner_org: "22B Labs" }
+                    saveCredential(cred)
+                    setAilCredential(cred)
+                  }}>
+                    Use Default
+                  </Button>
+                </div>
+              </div>
+
+              {/* Or paste custom token */}
+              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">Or paste your own credential</div>
               <div className="flex gap-2">
                 <input
                   type="text"
