@@ -61,6 +61,7 @@ export default function Navbar() {
     ["/", t("nav_home")],
     ["/dashboard", t("nav_dashboard")],
     ["/agents", t("nav_agents")],
+    ["/missions", "Missions"],
     ["/dashboard/bond", t("nav_staking")],
     ["/guide", t("nav_docs")],
   ]

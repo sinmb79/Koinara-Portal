@@ -8,6 +8,11 @@ export const ADDRESSES = {
   registry: "0x7518B1B76dA0eb61f79db76671A99f404eBB6960",
   verifier: "0xb484695F28382E9960d37728Aa724777FC252149",
   distributor: "0x7E0185DF566269906711ada358cD816394e20447",
+  // Mission Board contracts (Worldland Mainnet)
+  missionBoard: "0xBEeC6567e8eCB6a5D919F15312a8cAB73e3Bef55",
+  collaborationManager: "0xBC2939f67142946331e5c2Bbb04CCC2AAe432CE4",
+  verificationOracle: "0x28c3e8F3b441C3a1a797b39E5B4d8F9EFF4eF901",
+  missionKoin: "0x1d22f43A5105C9dc540DbC9F9d94E0CA4bF0Ec08",
 }
 
 export const NODE_ROLE = {
@@ -101,6 +106,33 @@ export const VERIFIER_ABI = [
   "function maxVerificationWindow() view returns (uint256)",
   "function paused() view returns (bool)",
 ]
+
+// ── Mission Board ABIs ─────────────────────────────
+export const MISSION_BOARD_ABI = [
+  "function getMissionCount() view returns (uint256)",
+  "function getMission(uint256 missionId) view returns ((uint256 id, uint8 category, string metadataURI, address curator, uint256 baseReward, uint256 progressReward, uint256 resolutionReward, uint8 status, uint256 createdAt, uint256 claimedAt))",
+  "function getSubmissionsByMission(uint256 missionId) view returns (uint256[])",
+  "function getSubmission(uint256 submissionId) view returns ((uint256 id, uint256 missionId, address submitter, string reportHash, bytes proofData, uint8 verdict, bool isResolution, bool verified, uint256 submittedAt))",
+  "function isParticipant(uint256 missionId, address account) view returns (bool)",
+  "function getParticipants(uint256 missionId) view returns (address[])",
+  "function claimMission(uint256 missionId, bytes calldata ailCredential)",
+  "function submitProgress(uint256 missionId, string calldata reportHash, bytes calldata proofData) returns (uint256)",
+  "function submitResolution(uint256 missionId, string calldata reportHash, bytes calldata proofData) returns (uint256)",
+  "event MissionRegistered(uint256 indexed missionId, uint8 category, address indexed curator, uint256 baseReward, uint256 progressReward, uint256 resolutionReward)",
+  "event MissionClaimed(uint256 indexed missionId, address indexed claimer, bytes32 ailId)",
+  "event ProgressSubmitted(uint256 indexed missionId, uint256 indexed submissionId, address indexed submitter, string reportHash)",
+  "event ResolutionSubmitted(uint256 indexed missionId, uint256 indexed submissionId, address indexed submitter, string reportHash)",
+]
+
+export const COLLABORATION_MANAGER_ABI = [
+  "function getTeam(uint256 missionId) view returns ((uint256 missionId, address[] agents, address[] humans, uint256[] rewardShares, bool exists))",
+  "function hasTeam(uint256 missionId) view returns (bool)",
+  "function formTeam(uint256 missionId, address[] calldata agents, address[] calldata humans, uint256[] calldata rewardShares)",
+]
+
+export const MISSION_CATEGORY = { COLD_CASE: 0, MATH: 1, RESEARCH: 2 }
+export const MISSION_STATUS = { OPEN: 0, IN_PROGRESS: 1, UNDER_REVIEW: 2, RESOLVED: 3, CLOSED: 4 }
+export const VERDICT = { VERIFIED: 0, PROGRESS: 1, INCONCLUSIVE: 2, REJECTED: 3 }
 
 export const DISTRIBUTOR_ABI = [
   "function currentEpoch() view returns (uint256)",

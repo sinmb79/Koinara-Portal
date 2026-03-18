@@ -20,6 +20,8 @@ const Admin = lazy(() => import("./pages/Admin.jsx"))
 const AgentCatalog = lazy(() => import("./pages/AgentCatalog.jsx"))
 const AgentProfile = lazy(() => import("./pages/AgentProfile.jsx"))
 const AgentServiceRegister = lazy(() => import("./pages/AgentServiceRegister.jsx"))
+const MissionBoard = lazy(() => import("./pages/MissionBoard.jsx"))
+const MissionDetail = lazy(() => import("./pages/MissionDetail.jsx"))
 
 export default function App() {
   const { initReadOnly, refreshDashboard, loadJobs, loadRewards } = useStore()
@@ -63,6 +65,8 @@ export default function App() {
             <Route path="/dashboard/bond" element={<NodeBond />} />
             <Route path="/dashboard/register" element={<NodeRegister />} />
             <Route path="/dashboard/rewards" element={<Rewards />} />
+            <Route path="/missions" element={<MissionBoard />} />
+            <Route path="/missions/:id" element={<MissionDetail />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </Suspense>
