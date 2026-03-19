@@ -9,6 +9,17 @@ export const WORLDLAND = {
   blockExplorerUrls: ["https://scan.worldland.foundation"],
 }
 
+export const BASE = {
+  chainId: 8453,
+  chainIdHex: "0x2105",
+  chainName: "Base",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: ["https://mainnet.base.org"],
+  blockExplorerUrls: ["https://basescan.org"],
+}
+
+export const SUPPORTED_CHAINS = { 103: WORLDLAND, 8453: BASE }
+
 export const EXPLORER = WORLDLAND.blockExplorerUrls[0]
 
 export const JOB_TYPE_OPTIONS = [

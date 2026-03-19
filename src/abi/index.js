@@ -15,6 +15,22 @@ export const ADDRESSES = {
   missionKoin: "0x1d22f43A5105C9dc540DbC9F9d94E0CA4bF0Ec08",
 }
 
+// Base Mainnet Mission Board contracts
+export const BASE_ADDRESSES = {
+  missionBoard: "0xc1dfc5B92b4B5c7C5F2E33266C69B49520eDEE21",
+  collaborationManager: "0x47D87b7ca2dFFC147BDB47d0A371064E3d7179A3",
+  verificationOracle: "0x60106dce7AdC0eD103D12601680B832250d586A7",
+  missionKoin: "0xEA5E19f07E3A55C85A8822Ee2b81994bfD38972B",
+  ailVerifier: "0x54CAfe6801F76c74AD3dB56042ACDF35215D8810",
+  mockProova: "0x09816A46Fbf0FfBc91a1951A1D1d4ca23C10193A",
+}
+
+// Chain-aware address resolver
+export function getMissionAddresses(chainId) {
+  if (chainId === 8453) return BASE_ADDRESSES
+  return ADDRESSES // default: Worldland
+}
+
 export const NODE_ROLE = {
   PROVIDER: 0,
   VERIFIER: 1,

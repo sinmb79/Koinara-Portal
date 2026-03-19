@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { ethers } from "ethers"
-import { WORLDLAND } from "../lib/chain.js"
-import { ADDRESSES, MISSION_BOARD_ABI } from "../abi/index.js"
+import { WORLDLAND, BASE } from "../lib/chain.js"
+import { ADDRESSES, BASE_ADDRESSES, MISSION_BOARD_ABI } from "../abi/index.js"
 import { LoadingState, StatusPill } from "../components/ui.jsx"
 import MISSION_METADATA, { CLOSED_MISSIONS } from "../data/missionMetadata.js"
+
+const CHAINS = [
+  { id: "worldland", label: "Worldland", chain: WORLDLAND, addresses: ADDRESSES },
+  { id: "base", label: "Base", chain: BASE, addresses: BASE_ADDRESSES },
+]
 
 const CATEGORY_LABELS = { 0: "Cold Case", 1: "Math", 2: "Research" }
 const CATEGORY_COLORS = { 0: "danger", 1: "info", 2: "success" }
@@ -28,17 +33,21 @@ export default function MissionBoard() {
   const [missions, setMissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(null) // null = all
+  const [selectedChain, setSelectedChain] = useState("base") // default to Base
 
   useEffect(() => {
     ;(async () => {
+      setLoading(true)
+      setMissions([])
       try {
-        const provider = new ethers.JsonRpcProvider(WORLDLAND.rpcUrls[0])
-        const mb = new ethers.Contract(ADDRESSES.missionBoard, MISSION_BOARD_ABI, provider)
+        const chainConfig = CHAINS.find((c) => c.id === selectedChain) || CHAINS[0]
+        const provider = new ethers.JsonRpcProvider(chainConfig.chain.rpcUrls[0])
+        const mb = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, provider)
         const count = Number(await mb.getMissionCount())
         const list = []
         for (let i = 1; i <= count; i++) {
           const m = await mb.getMission(i)
-          list.push(m)
+          list.push({ ...m, _chain: selectedChain })
         }
         setMissions(list)
       } catch (err) {
@@ -47,7 +56,7 @@ export default function MissionBoard() {
         setLoading(false)
       }
     })()
-  }, [])
+  }, [selectedChain])
 
   // Filter by category, and put closed missions at the end
   const filtered = (filter !== null ? missions.filter((m) => Number(m.category) === filter) : missions)
@@ -61,7 +70,25 @@ export default function MissionBoard() {
   return (
     <div className="page-shell py-8">
       <div className="mb-6">
-        <div className="text-xs font-semibold uppercase tracking-widest text-primary/80 mb-2">Mission Board</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold uppercase tracking-widest text-primary/80">Mission Board</div>
+          {/* Chain selector */}
+          <div className="flex gap-1.5">
+            {CHAINS.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedChain(c.id)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
+                  selectedChain === c.id
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-white/10 bg-white/5 text-slate-500 hover:text-white"
+                }`}
+              >
+                {c.id === "base" ? "⬡" : "🌐"} {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <h1 className="text-3xl font-black text-white tracking-tight">Unsolved Missions</h1>
         <p className="mt-2 text-sm text-slate-400">
           Cold cases, math conjectures, and open research — claim, collaborate, solve, earn KOIN.
@@ -69,6 +96,7 @@ export default function MissionBoard() {
         <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
           <span>{missions.length} missions</span>
           <span>{missions.filter((m) => !CLOSED_MISSIONS.has(m.metadataURI)).length} active</span>
+          <span className="text-primary/40">on {CHAINS.find((c) => c.id === selectedChain)?.label}</span>
         </div>
       </div>
 
@@ -100,7 +128,7 @@ export default function MissionBoard() {
       </div>
 
       {loading ? (
-        <LoadingState label="Loading missions from Worldland..." />
+        <LoadingState label={`Loading missions from ${CHAINS.find((c) => c.id === selectedChain)?.label}...`} />
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-500">No missions found.</div>
       ) : (
@@ -114,8 +142,8 @@ export default function MissionBoard() {
 
             return (
               <Link
-                key={id}
-                to={`/missions/${id}`}
+                key={`${selectedChain}-${id}`}
+                to={`/missions/${id}?chain=${selectedChain}`}
                 className={`group rounded-2xl border p-5 transition ${
                   isClosed
                     ? "border-white/5 bg-white/[0.01] opacity-50 hover:opacity-70"

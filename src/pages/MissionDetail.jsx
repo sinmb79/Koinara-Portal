@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, Link, useSearchParams } from "react-router-dom"
 import { ethers } from "ethers"
-import { WORLDLAND, shortAddress, formatDateTime } from "../lib/chain.js"
+import { WORLDLAND, BASE, shortAddress, formatDateTime } from "../lib/chain.js"
 import {
-  ADDRESSES, MISSION_BOARD_ABI, COLLABORATION_MANAGER_ABI,
+  ADDRESSES, BASE_ADDRESSES, MISSION_BOARD_ABI, COLLABORATION_MANAGER_ABI,
 } from "../abi/index.js"
+
+const CHAIN_MAP = {
+  worldland: { chain: WORLDLAND, addresses: ADDRESSES },
+  base: { chain: BASE, addresses: BASE_ADDRESSES },
+}
 import useStore from "../lib/store.js"
 import { Button, StatusPill, LoadingState } from "../components/ui.jsx"
 import MISSION_METADATA, { CLOSED_MISSIONS } from "../data/missionMetadata.js"
@@ -26,6 +31,9 @@ function fmt(wei) {
 
 export default function MissionDetail() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const chainKey = searchParams.get("chain") || "base"
+  const chainConfig = CHAIN_MAP[chainKey] || CHAIN_MAP.base
   const { address, signer } = useStore()
 
   const [mission, setMission] = useState(null)
@@ -42,9 +50,9 @@ export default function MissionDetail() {
   const [ailVerifying, setAilVerifying] = useState(false)
   const [ailError, setAilError] = useState("")
 
-  const provider = new ethers.JsonRpcProvider(WORLDLAND.rpcUrls[0])
-  const mbRead = new ethers.Contract(ADDRESSES.missionBoard, MISSION_BOARD_ABI, provider)
-  const cmRead = new ethers.Contract(ADDRESSES.collaborationManager, COLLABORATION_MANAGER_ABI, provider)
+  const provider = new ethers.JsonRpcProvider(chainConfig.chain.rpcUrls[0])
+  const mbRead = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, provider)
+  const cmRead = new ethers.Contract(chainConfig.addresses.collaborationManager, COLLABORATION_MANAGER_ABI, provider)
 
   useEffect(() => {
     loadMission()
@@ -131,7 +139,7 @@ export default function MissionDetail() {
       }
 
       // Step 2: Encode verified credential for on-chain submission
-      const mb = new ethers.Contract(ADDRESSES.missionBoard, MISSION_BOARD_ABI, signer)
+      const mb = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
       const credential = encodeCredentialForChain(address)
       const tx = await mb.claimMission(id, credential)
       await tx.wait()
@@ -149,7 +157,7 @@ export default function MissionDetail() {
     if (!signer || !reportHash.trim()) return
     setSubmitting(true)
     try {
-      const mb = new ethers.Contract(ADDRESSES.missionBoard, MISSION_BOARD_ABI, signer)
+      const mb = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
       const fn = isResolution ? mb.submitResolution : mb.submitProgress
       const tx = await fn(id, reportHash.trim(), "0x")
       await tx.wait()
@@ -190,7 +198,12 @@ export default function MissionDetail() {
 
   return (
     <div className="page-shell py-8 max-w-4xl mx-auto">
-      <Link to="/missions" className="text-xs text-primary hover:underline mb-4 inline-block">&larr; Back to Mission Board</Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link to="/missions" className="text-xs text-primary hover:underline">&larr; Back to Mission Board</Link>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase">
+          {chainKey === "base" ? "⬡" : "🌐"} {chainConfig.chain.chainName}
+        </span>
+      </div>
 
       {/* Closed banner */}
       {isClosed && (
