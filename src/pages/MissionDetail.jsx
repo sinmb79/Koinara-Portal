@@ -37,6 +37,7 @@ export default function MissionDetail() {
   const { address, signer } = useStore()
 
   const [mission, setMission] = useState(null)
+  const [otherChainMission, setOtherChainMission] = useState(null)
   const [participants, setParticipants] = useState([])
   const [isParticipant, setIsParticipant] = useState(false)
   const [team, setTeam] = useState(null)
@@ -84,6 +85,24 @@ export default function MissionDetail() {
         subs.push(s)
       }
       setSubmissions(subs)
+
+      // Load same mission from other chain (by metadataURI)
+      const otherKey = chainKey === "base" ? "worldland" : "base"
+      const otherConfig = CHAIN_MAP[otherKey]
+      if (otherConfig) {
+        try {
+          const otherProvider = new ethers.JsonRpcProvider(otherConfig.chain.rpcUrls[0])
+          const otherMb = new ethers.Contract(otherConfig.addresses.missionBoard, MISSION_BOARD_ABI, otherProvider)
+          const otherCount = Number(await otherMb.getMissionCount())
+          for (let i = 1; i <= otherCount; i++) {
+            const om = await otherMb.getMission(i)
+            if (om.metadataURI === m.metadataURI) {
+              setOtherChainMission({ ...om, _chain: otherKey })
+              break
+            }
+          }
+        } catch {}
+      }
     } catch (err) {
       console.error("Failed to load mission:", err)
     } finally {
@@ -268,21 +287,46 @@ export default function MissionDetail() {
           </div>
         )}
 
-        {/* Rewards */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="rounded-xl bg-white/5 p-3 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base Reward</div>
-            <div className="text-lg font-bold text-white">{fmt(mission.baseReward)} KOIN</div>
-          </div>
-          <div className="rounded-xl bg-white/5 p-3 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Progress Reward</div>
-            <div className="text-lg font-bold text-amber-400">{fmt(mission.progressReward)} KOIN</div>
-          </div>
-          <div className="rounded-xl bg-white/5 p-3 text-center">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Resolution Reward</div>
-            <div className="text-lg font-bold text-emerald-400">{fmt(mission.resolutionReward)} KOIN</div>
-          </div>
-        </div>
+        {/* Rewards — combined from both chains */}
+        {(() => {
+          const om = otherChainMission
+          const totalBase = (mission.baseReward ?? 0n) + (om?.baseReward ?? 0n)
+          const totalProgress = (mission.progressReward ?? 0n) + (om?.progressReward ?? 0n)
+          const totalResolution = (mission.resolutionReward ?? 0n) + (om?.resolutionReward ?? 0n)
+          const otherLabel = chainKey === "base" ? "🌐 Worldland" : "⬡ Base"
+          const thisLabel = chainKey === "base" ? "⬡ Base" : "🌐 Worldland"
+          return (
+            <div className="mb-4">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2 font-semibold">
+                Total Rewards (both chains)
+              </div>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="rounded-xl bg-white/5 p-3 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base Reward</div>
+                  <div className="text-lg font-bold text-white">{fmt(totalBase)} KOIN</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Progress Reward</div>
+                  <div className="text-lg font-bold text-amber-400">{fmt(totalProgress)} KOIN</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3 text-center">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Resolution Reward</div>
+                  <div className="text-lg font-bold text-emerald-400">{fmt(totalResolution)} KOIN</div>
+                </div>
+              </div>
+              {om && (
+                <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                  <div className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
+                    <span className="font-semibold">{thisLabel}</span>: {fmt(mission.baseReward)} / {fmt(mission.progressReward)} / {fmt(mission.resolutionReward)} KOIN
+                  </div>
+                  <div className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
+                    <span className="font-semibold">{otherLabel}</span>: {fmt(om.baseReward)} / {fmt(om.progressReward)} / {fmt(om.resolutionReward)} KOIN
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         <div className="text-xs text-slate-500">
           Curator: <span className="font-mono">{shortAddress(mission.curator)}</span>
