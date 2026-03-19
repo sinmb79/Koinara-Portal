@@ -54,6 +54,7 @@ export default function Navbar() {
   } = useStore()
   const t = useT(lang)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [networkPickerOpen, setNetworkPickerOpen] = useState(false)
   const [walletPickerOpen, setWalletPickerOpen] = useState(false)
   const [walletOptions, setWalletOptions] = useState([])
   const lastWalletErrorRef = useRef({ message: "", time: 0 })
@@ -227,15 +228,38 @@ export default function Navbar() {
 
           {address ? (
             <div className="flex items-center gap-2">
-              {isCorrectChain ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-[11px] font-bold text-primary">
+              {/* Network selector dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setNetworkPickerOpen((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
+                    isCorrectChain
+                      ? "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10"
+                      : "border-red-500/30 bg-red-500/10 text-red-400"
+                  }`}
+                >
                   {chainId === 8453 ? "⬡ Base" : "🌐 Worldland"}
-                </span>
-              ) : (
-                <Button variant="danger" onClick={handleSwitch}>
-                  Switch Network
-                </Button>
-              )}
+                  <span className="text-[9px] ml-0.5">▼</span>
+                </button>
+                {networkPickerOpen && (
+                  <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-2xl border border-white/10 bg-[#15111b] shadow-xl overflow-hidden">
+                    <button
+                      onClick={async () => { setNetworkPickerOpen(false); await switchChain(WORLDLAND) }}
+                      className={`flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold transition hover:bg-white/5 ${chainId === 103 ? "text-primary" : "text-slate-300"}`}
+                    >
+                      🌐 Worldland Mainnet
+                      {chainId === 103 && <span className="ml-auto text-primary">✓</span>}
+                    </button>
+                    <button
+                      onClick={async () => { setNetworkPickerOpen(false); await switchChain(BASE) }}
+                      className={`flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold transition hover:bg-white/5 ${chainId === 8453 ? "text-primary" : "text-slate-300"}`}
+                    >
+                      ⬡ Base Mainnet
+                      {chainId === 8453 && <span className="ml-auto text-primary">✓</span>}
+                    </button>
+                  </div>
+                )}
+              </div>
               <span className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-4 font-mono text-xs text-slate-200">
                 {shortAddress(address)}
               </span>

@@ -182,29 +182,37 @@ const useStore = create((set, get) => ({
       workRewards: [],
     }),
 
-  switchChain: async () => {
+  switchChain: async (targetChain = null) => {
+    const chain = targetChain || WORLDLAND
     const wallets = listInjectedWallets()
     const injected = get().walletProvider || requireInjectedWallet(wallets[0]?.id, wallets).provider
     try {
       await injected.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: WORLDLAND.chainIdHex }],
+        params: [{ chainId: chain.chainIdHex }],
       })
     } catch (error) {
       if (error.code === 4902) {
         await injected.request({
           method: "wallet_addEthereumChain",
           params: [{
-            chainId: WORLDLAND.chainIdHex,
-            chainName: WORLDLAND.chainName,
-            nativeCurrency: WORLDLAND.nativeCurrency,
-            rpcUrls: WORLDLAND.rpcUrls,
-            blockExplorerUrls: WORLDLAND.blockExplorerUrls,
+            chainId: chain.chainIdHex,
+            chainName: chain.chainName,
+            nativeCurrency: chain.nativeCurrency,
+            rpcUrls: chain.rpcUrls,
+            blockExplorerUrls: chain.blockExplorerUrls,
           }],
         })
       } else {
         throw error
       }
+    }
+    // Update chainId after switch
+    const provider = get().provider
+    if (provider) {
+      const network = await provider.getNetwork()
+      const newChainId = Number(network.chainId)
+      set({ chainId: newChainId, isCorrectChain: newChainId === WORLDLAND.chainId || newChainId === BASE.chainId })
     }
   },
 

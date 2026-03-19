@@ -43,12 +43,14 @@ export default function Footer() {
           <div className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{t("footer_network")}</div>
           <div className="space-y-3 text-sm text-slate-300">
             <div className="rounded-2xl border border-primary/10 bg-white/5 px-4 py-3">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{t("common_worldland")}</div>
-              <div className="mt-1 font-semibold text-slate-100">{t("footer_runtime")}</div>
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Worldland Mainnet</div>
+              <div className="mt-1 font-semibold text-slate-100">Worldland</div>
+              <div className="mt-0.5 font-mono text-[10px] text-slate-500">Chain ID 103</div>
             </div>
-            <div className="rounded-2xl border border-primary/10 bg-white/5 px-4 py-3">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{t("footer_chain_id")}</div>
-              <div className="mt-1 font-mono text-slate-100">103</div>
+            <div className="rounded-2xl border border-blue-500/10 bg-blue-500/[0.03] px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-blue-400/60">Base Mainnet</div>
+              <div className="mt-1 font-semibold text-slate-100">Base</div>
+              <div className="mt-0.5 font-mono text-[10px] text-slate-500">Chain ID 8453</div>
             </div>
           </div>
         </div>
