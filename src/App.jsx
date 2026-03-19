@@ -22,6 +22,7 @@ const AgentProfile = lazy(() => import("./pages/AgentProfile.jsx"))
 const AgentServiceRegister = lazy(() => import("./pages/AgentServiceRegister.jsx"))
 const MissionBoard = lazy(() => import("./pages/MissionBoard.jsx"))
 const MissionDetail = lazy(() => import("./pages/MissionDetail.jsx"))
+const Tokenomics = lazy(() => import("./pages/Tokenomics.jsx"))
 
 export default function App() {
   const { initReadOnly, refreshDashboard, loadJobs, loadRewards } = useStore()
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/dashboard/register" element={<NodeRegister />} />
             <Route path="/dashboard/rewards" element={<Rewards />} />
             <Route path="/missions" element={<MissionBoard />} />
+            <Route path="/tokenomics" element={<Tokenomics />} />
             <Route path="/missions/:id" element={<MissionDetail />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>

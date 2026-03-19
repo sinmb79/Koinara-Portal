@@ -64,6 +64,7 @@ export default function Navbar() {
     ["/dashboard", t("nav_dashboard")],
     ["/agents", t("nav_agents")],
     ["/missions", "Missions"],
+    ["/tokenomics", "Tokenomics"],
     ["/dashboard/bond", t("nav_staking")],
     ["/guide", t("nav_docs")],
   ]
