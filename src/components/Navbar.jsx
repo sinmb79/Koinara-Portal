@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { Button, StatusPill } from "./ui.jsx"
-import { shortAddress } from "../lib/chain.js"
+import { shortAddress, SUPPORTED_CHAINS, WORLDLAND, BASE } from "../lib/chain.js"
 import { discoverInjectedWallets } from "../lib/wallet.js"
 import SearchBar from "./SearchBar.jsx"
 
@@ -43,6 +43,7 @@ export default function Navbar() {
     lang,
     setLang,
     address,
+    chainId,
     isConnecting,
     isCorrectChain,
     walletName,
@@ -213,7 +214,7 @@ export default function Navbar() {
           </div>
 
           <div className="inline-flex items-center rounded-full border border-primary/10 bg-white/5 p-1">
-            {["ko", "en"].map((value) => (
+            {["en", "ko"].map((value) => (
               <button
                 key={value}
                 className={`h-9 rounded-full px-3 text-xs font-semibold transition-colors ${lang === value ? "bg-primary text-[#0f231d]" : "text-slate-400 hover:text-slate-100"}`}
@@ -227,10 +228,12 @@ export default function Navbar() {
           {address ? (
             <div className="flex items-center gap-2">
               {isCorrectChain ? (
-                <StatusPill tone="success">{dashboard.currentEpoch ? `Epoch ${dashboard.currentEpoch}` : (walletName || "Connected")}</StatusPill>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-[11px] font-bold text-primary">
+                  {chainId === 8453 ? "⬡ Base" : "🌐 Worldland"}
+                </span>
               ) : (
                 <Button variant="danger" onClick={handleSwitch}>
-                  {t("nav_switch_chain")}
+                  Switch Network
                 </Button>
               )}
               <span className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-4 font-mono text-xs text-slate-200">

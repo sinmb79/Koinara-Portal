@@ -7,7 +7,7 @@ const translations = {
     nav_connect: "지갑 연결",
     nav_connecting: "연결 중",
     nav_disconnect: "연결 해제",
-    nav_switch_chain: "Worldland로 전환",
+    nav_switch_chain: "네트워크 전환",
 
     tab_overview: "개요",
     tab_bond: "Node Bond",
@@ -240,7 +240,7 @@ const translations = {
     nav_connect: "Connect Wallet",
     nav_connecting: "Connecting",
     nav_disconnect: "Disconnect",
-    nav_switch_chain: "Switch to Worldland",
+    nav_switch_chain: "Switch Network",
 
     tab_overview: "Overview",
     tab_bond: "Node Bond",
@@ -922,7 +922,7 @@ Object.assign(translations.ko, {
   nav_connect: "메타마스크 연결",
   nav_connecting: "메타마스크 연결 중",
   nav_disconnect: "연결 해제",
-  nav_switch_chain: "Worldland로 전환",
+  nav_switch_chain: "네트워크 전환",
   search_agents_placeholder: "에이전트 검색...",
   common_loading: "불러오는 중",
   common_view_on_scan: "스캔에서 보기",

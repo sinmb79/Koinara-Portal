@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { ethers } from "ethers"
-import { WORLDLAND, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
+import { WORLDLAND, BASE, SUPPORTED_CHAINS, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
 import { FEE_CONFIG, calcRequesterFee } from "./feeConfig.js"
 import { discoverInjectedWallets, listInjectedWallets, requireInjectedWallet } from "./wallet.js"
 import {
@@ -96,7 +96,7 @@ const INITIAL_DASHBOARD = {
 }
 
 const useStore = create((set, get) => ({
-  lang: localStorage.getItem("koinara_lang") || "ko",
+  lang: localStorage.getItem("koinara_lang") || "en",
   setLang: (lang) => {
     localStorage.setItem("koinara_lang", lang)
     set({ lang })
@@ -146,7 +146,7 @@ const useStore = create((set, get) => ({
       const address = await signer.getAddress()
       const network = await provider.getNetwork()
       const chainId = Number(network.chainId)
-      const isCorrectChain = chainId === WORLDLAND.chainId
+      const isCorrectChain = chainId === WORLDLAND.chainId || chainId === BASE.chainId
       set({
         provider,
         signer,
