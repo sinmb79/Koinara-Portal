@@ -97,7 +97,12 @@ export default function MissionDetail() {
           for (let i = 1; i <= otherCount; i++) {
             const om = await otherMb.getMission(i)
             if (om.metadataURI === m.metadataURI) {
-              setOtherChainMission({ ...om, _chain: otherKey })
+              setOtherChainMission({
+                id: om.id, category: om.category, metadataURI: om.metadataURI,
+                curator: om.curator, baseReward: om.baseReward, progressReward: om.progressReward,
+                resolutionReward: om.resolutionReward, status: om.status, createdAt: om.createdAt,
+                _chain: otherKey,
+              })
               break
             }
           }

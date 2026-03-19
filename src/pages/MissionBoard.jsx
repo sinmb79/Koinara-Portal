@@ -29,6 +29,22 @@ function fmt(wei) {
   return n.toFixed(2)
 }
 
+// Extract plain object from ethers.js Result (which doesn't spread properly)
+function toMissionObj(m) {
+  return {
+    id: m.id,
+    category: m.category,
+    metadataURI: m.metadataURI,
+    curator: m.curator,
+    baseReward: m.baseReward,
+    progressReward: m.progressReward,
+    resolutionReward: m.resolutionReward,
+    status: m.status,
+    createdAt: m.createdAt,
+    claimedAt: m.claimedAt,
+  }
+}
+
 async function loadChainMissions(chainConfig) {
   try {
     const provider = new ethers.JsonRpcProvider(chainConfig.chain.rpcUrls[0])
@@ -37,7 +53,7 @@ async function loadChainMissions(chainConfig) {
     const list = []
     for (let i = 1; i <= count; i++) {
       const m = await mb.getMission(i)
-      list.push({ ...m, _chainId: chainConfig.id, _missionId: Number(m.id) })
+      list.push({ ...toMissionObj(m), _chainId: chainConfig.id, _missionId: Number(m.id) })
     }
     return list
   } catch (err) {
