@@ -101,6 +101,14 @@ export default function Navbar() {
   async function handleConnect() {
     if (isConnecting) return
     const wallets = await discoverInjectedWallets()
+
+    // Mobile: no injected wallet found → open in MetaMask app browser
+    if (wallets.length === 0 && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      const dappUrl = window.location.href.replace(/^https?:\/\//, "")
+      window.location.href = `https://metamask.app.link/dapp/${dappUrl}`
+      return
+    }
+
     if (wallets.length > 1) {
       setWalletOptions(wallets)
       setWalletPickerOpen(true)
@@ -260,9 +268,13 @@ export default function Navbar() {
                   </div>
                 )}
               </div>
-              <span className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-4 font-mono text-xs text-slate-200">
+              <button
+                onClick={async () => { disconnect(); await handleConnect() }}
+                className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-4 font-mono text-xs text-slate-200 hover:border-primary/30 hover:text-primary transition cursor-pointer"
+                title="Click to switch wallet"
+              >
                 {shortAddress(address)}
-              </span>
+              </button>
               <Button variant="ghost" onClick={disconnect}>
                 {t("nav_disconnect")}
               </Button>
