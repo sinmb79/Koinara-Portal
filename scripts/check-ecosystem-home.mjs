@@ -3,6 +3,8 @@ import fs from "node:fs"
 
 const appSource = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8")
 const navbarSource = fs.readFileSync(new URL("../src/components/Navbar.jsx", import.meta.url), "utf8")
+const footerSource = fs.readFileSync(new URL("../src/components/Footer.jsx", import.meta.url), "utf8")
+const externalLinksSource = fs.readFileSync(new URL("../src/lib/externalLinks.js", import.meta.url), "utf8")
 const ecosystemPath = new URL("../src/pages/EcosystemHome.jsx", import.meta.url)
 const ecosystemSource = fs.existsSync(ecosystemPath) ? fs.readFileSync(ecosystemPath, "utf8") : ""
 const shellPath = new URL("../src/components/EcosystemShell.jsx", import.meta.url)
@@ -42,3 +44,6 @@ assert.equal(indexCssSource.includes(".ecosystem-grid"), true)
 assert.equal(indexCssSource.includes(".ecosystem-center"), true)
 assert.equal(indexCssSource.includes("@media (max-width: 1279px)"), true)
 assert.equal(indexCssSource.includes("@media (max-width: 1023px)"), true)
+assert.equal(externalLinksSource.includes('discord: "https://discord.gg/r76T47r2pE"'), true)
+assert.equal(footerSource.includes("EXTERNAL_LINKS.discord"), true)
+assert.equal(footerSource.includes("Koinara Discord"), true)

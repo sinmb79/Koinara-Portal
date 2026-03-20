@@ -37,6 +37,7 @@ export default function Footer() {
           links={[
             { label: t("footer_guide"), to: "/guide", internal: true },
             { label: "Tokenomics", to: "/tokenomics", internal: true },
+            { label: "Koinara Discord", to: EXTERNAL_LINKS.discord },
             { label: t("footer_whitepaper"), to: EXTERNAL_LINKS.whitepaperEn },
           ]}
         />
