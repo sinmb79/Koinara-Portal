@@ -7,6 +7,7 @@ import { captureReferral } from "./lib/feeConfig.js"
 import { LoadingState } from "./components/ui.jsx"
 
 const Home = lazy(() => import("./pages/Home.jsx"))
+const EcosystemHome = lazy(() => import("./pages/EcosystemHome.jsx"))
 const Guide = lazy(() => import("./pages/Guide.jsx"))
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"))
 const JobExplorer = lazy(() => import("./pages/JobExplorer.jsx"))
@@ -53,6 +54,7 @@ export default function App() {
           </div>
         )}>
           <Routes>
+            <Route path="/ecosystem" element={<EcosystemHome />} />
             <Route path="/" element={<Home />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/agents" element={<AgentCatalog />} />
