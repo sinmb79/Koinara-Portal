@@ -35,6 +35,7 @@ export default function Footer() {
           title={t("footer_docs")}
           links={[
             { label: t("footer_guide"), to: "/guide", internal: true },
+            { label: "Tokenomics", to: "/tokenomics", internal: true },
             { label: t("footer_whitepaper"), to: EXTERNAL_LINKS.whitepaperEn },
           ]}
         />
