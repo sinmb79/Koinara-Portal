@@ -4,4 +4,5 @@ export const EXTERNAL_LINKS = {
   installWindows: "https://github.com/sinmb79/Koinara-node/blob/main/docs/install-windows.md",
   openclawSetup: "https://github.com/sinmb79/Koinara-node/blob/main/docs/openclaw-setup.md",
   nodeRepo: "https://github.com/sinmb79/Koinara-node",
+  discord: "https://discord.gg/r76T47r2pE",
 }
