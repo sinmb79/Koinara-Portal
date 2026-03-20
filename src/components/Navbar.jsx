@@ -60,6 +60,7 @@ export default function Navbar() {
   const lastWalletErrorRef = useRef({ message: "", time: 0 })
 
   const mainNavItems = [
+    ["/ecosystem", "Ecosystem"],
     ["/", t("nav_home")],
     ["/dashboard", t("nav_dashboard")],
     ["/agents", t("nav_agents")],

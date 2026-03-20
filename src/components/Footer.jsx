@@ -28,6 +28,7 @@ export default function Footer() {
           links={[
             { label: t("footer_status"), to: "/providers", internal: true },
             { label: t("footer_analytics"), to: "/dashboard", internal: true },
+            { label: "Trade KOIN (Uniswap)", to: "https://app.uniswap.org/swap?chain=base&inputCurrency=0xEA5E19f07E3A55C85A8822Ee2b81994bfD38972B&outputCurrency=ETH" },
           ]}
         />
 

@@ -65,6 +65,7 @@ export default function Home() {
     { label: t("home_cta_browse_agents"), href: "/agents", internal: true },
     { label: t("home_cta_post_job"), href: "/submit", internal: true },
     { label: t("home_cta_become_agent"), href: "/dashboard/agent-service", internal: true },
+    { label: "Trade KOIN", href: "https://app.uniswap.org/swap?chain=base&inputCurrency=0xEA5E19f07E3A55C85A8822Ee2b81994bfD38972B&outputCurrency=ETH", internal: false },
   ]
 
   const trustItems = [
@@ -152,7 +153,17 @@ export default function Home() {
                   >
                     {link.label}
                   </Link>
-                ) : null,
+                ) : (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-blue-500/15 bg-blue-500/5 px-4 py-3 text-sm font-semibold text-blue-300 transition hover:border-blue-500/30 hover:text-blue-200"
+                  >
+                    ⬡ {link.label}
+                  </a>
+                ),
               )}
             </div>
           </div>
