@@ -4,18 +4,20 @@ import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { usePolling } from "../hooks/usePolling.js"
 import { ADDRESSES } from "../abi/index.js"
-import { formatDateTime, formatTokenAmount } from "../lib/chain.js"
+import { WORLDLAND, formatDateTime, formatTokenAmount } from "../lib/chain.js"
+import { supportsActiveEpochRewards } from "../lib/portalRewards.js"
 import { getAgentFeePolicy, getPromoPhaseLabelKey } from "../lib/feeConfig.js"
 import { loadMyAgentService } from "../lib/agentCatalog.js"
-import { AddressLink, JobStatePill, JobTypePill, EmptyState, LoadingState, Notice } from "../components/ui.jsx"
+import { AddressLink, Button, JobStatePill, JobTypePill, EmptyState, LoadingState, Notice } from "../components/ui.jsx"
 
 const DASHBOARD_CONTENT_TABS = ["overview", "jobs", "services", "nodes"]
 
 export default function Dashboard() {
-  const { address, dashboard, jobs, isLoadingDashboard, refreshDashboard, loadJobs, loadRewards, lang } = useStore()
+  const { address, chainId, dashboard, jobs, isLoadingDashboard, refreshDashboard, loadJobs, loadRewards, switchChain, lang } = useStore()
   const t = useT(lang)
   const agentFeePolicy = getAgentFeePolicy()
   const [tab, setTab] = useState("overview")
+  const activeRewardsSupported = supportsActiveEpochRewards(chainId)
 
   usePolling(refreshDashboard, 15000, true)
   usePolling(loadJobs, 25000, true)
@@ -142,8 +144,8 @@ export default function Dashboard() {
       </div>
 
       {tab === "overview" ? (
-        <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr]">
-          <section className="space-y-6">
+        <div className="dashboard-overview-layout">
+          <section className="dashboard-overview-main space-y-6">
             <PanelCard title={t("dashboard_overview_job_history")} action={(
               <button type="button" onClick={exportCsv} className="inline-flex h-9 items-center gap-2 rounded-xl border border-primary/15 px-3 text-xs font-bold text-slate-200 transition hover:bg-primary/10">
                 <span className="material-symbols-outlined text-[18px]">download</span>
@@ -170,20 +172,34 @@ export default function Dashboard() {
             </PanelCard>
           </section>
 
-          <aside className="space-y-6">
+          <aside className="dashboard-overview-aside">
             <PanelCard title={t("dashboard_rewards_panel_title")}>
-              <div className="grid gap-4">
-                <ValueCard label={t("dashboard_kpi_active_rewards")} value={`${dashboard.pendingActiveRewards} KOIN`} />
-                <ValueCard label={t("dashboard_kpi_bond")} value={`${dashboard.bondAmount} WLC`} />
-              </div>
-              <div className="mt-5 grid gap-3">
-                <Link to="/dashboard/rewards" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-bold text-[#0b2019] transition hover:brightness-110">
-                  {t("rewards_claim")}
-                </Link>
-                <Link to="/dashboard/bond" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 px-4 text-sm font-semibold text-primary transition hover:bg-primary/10">
-                  {t("bond_title")}
-                </Link>
-              </div>
+              {activeRewardsSupported ? (
+                <>
+                  <div className="grid gap-4">
+                    <ValueCard label={t("dashboard_kpi_active_rewards")} value={`${dashboard.pendingActiveRewards} KOIN`} />
+                    <ValueCard label={t("dashboard_kpi_bond")} value={`${dashboard.bondAmount} WLC`} />
+                  </div>
+                  <div className="mt-5 grid gap-3">
+                    <Link to="/dashboard/rewards" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-bold text-[#0b2019] transition hover:brightness-110">
+                      {t("rewards_claim")}
+                    </Link>
+                    <Link to="/dashboard/bond" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 px-4 text-sm font-semibold text-primary transition hover:bg-primary/10">
+                      {t("bond_title")}
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4 rounded-2xl border border-primary/15 bg-primary/10 p-5">
+                  <div className="text-sm font-bold text-white">OpenClaw epoch rewards stay on Worldland.</div>
+                  <p className="text-sm leading-7 text-slate-300">
+                    Base keeps the shell and Base KOIN balance in sync, but bond and attendance rewards still settle on Worldland.
+                  </p>
+                  <Button variant="primary" full onClick={() => switchChain(WORLDLAND)}>
+                    Switch wallet to Worldland
+                  </Button>
+                </div>
+              )}
             </PanelCard>
 
             <PanelCard title={t("dashboard_scaling_title")}>
