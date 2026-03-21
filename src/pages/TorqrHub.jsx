@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { ethers } from "ethers"
 import { toast } from "react-hot-toast"
 import { Link, useLocation, useNavigate } from "react-router-dom"
+import ProjectRail from "../components/Ecosystem/ProjectRail.jsx"
 import TorqrActivityPanel from "../components/Torqr/TorqrActivityPanel.jsx"
 import TorqrTokenAvatar from "../components/Torqr/TorqrTokenAvatar.jsx"
 import TorqrTradePanel from "../components/Torqr/TorqrTradePanel.jsx"
@@ -31,6 +32,7 @@ import {
   loadTorqrMarketSnapshot,
   loadTorqrTokenDetail,
 } from "../lib/torqrMarket.js"
+import { TORQR_PAGE_MAX_WIDTH, getTorqrShellGridTemplate } from "../lib/torqrLayout.js"
 
 const HOME_ROUTE = "/torqr"
 const STAT_DEFS = [
@@ -545,10 +547,28 @@ export default function TorqrHub() {
   const [marketError, setMarketError] = useState("")
   const [selectedTokenFallback, setSelectedTokenFallback] = useState(null)
   const [marketReloadKey, setMarketReloadKey] = useState(0)
+  const [viewportWidth, setViewportWidth] = useState(() => (
+    typeof window === "undefined" ? TORQR_PAGE_MAX_WIDTH : window.innerWidth
+  ))
 
   useEffect(() => {
     persistGateState(gate)
   }, [gate])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined
+
+    function syncViewportWidth() {
+      setViewportWidth(window.innerWidth)
+    }
+
+    syncViewportWidth()
+    window.addEventListener("resize", syncViewportWidth)
+
+    return () => {
+      window.removeEventListener("resize", syncViewportWidth)
+    }
+  }, [])
 
   const showCreate = String(location.pathname || "").startsWith("/torqr/create")
   const selectedTokenAddress = useMemo(() => {
@@ -639,6 +659,7 @@ export default function TorqrHub() {
   }, [market.tokens, selectedTokenAddress, selectedTokenFallback])
 
   const visibleTokens = market.tokens
+  const shellGridTemplate = useMemo(() => getTorqrShellGridTemplate(viewportWidth), [viewportWidth])
 
   const walletConnected = Boolean(address)
   const walletLabel = isConnecting
@@ -851,7 +872,7 @@ export default function TorqrHub() {
       {gate === "ok" ? (
         <>
           <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(8,8,14,0.85)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "0 24px" }}>
-            <div className="torqr-topbar" style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20, minHeight: 60 }}>
+            <div className="torqr-topbar" style={{ maxWidth: TORQR_PAGE_MAX_WIDTH, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20, minHeight: 60 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
                 <button onClick={() => navigate(HOME_ROUTE)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", background: "transparent", border: "none", color: "#f0f0f5" }}>
                   <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg,#00e5ff,#6366f1)", display: "grid", placeItems: "center", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 14, color: "#08080e" }}>T</div>
@@ -911,47 +932,55 @@ export default function TorqrHub() {
             </div>
           </nav>
 
-          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "0 24px", background: "rgba(255,255,255,0.01)" }}><div style={{ maxWidth: 1280, margin: "0 auto" }}><Ticker items={market.ticker} /></div></div>
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "0 24px", background: "rgba(255,255,255,0.01)" }}><div style={{ maxWidth: TORQR_PAGE_MAX_WIDTH, margin: "0 auto" }}><Ticker items={market.ticker} /></div></div>
 
-          <main style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.22)" }}>
-                {market.source === "api" ? "Synced from Torqr indexer." : market.source === "chain" ? "Indexer unavailable. Using live on-chain fallback." : isMarketLoading ? "Syncing Torqr market..." : "Waiting for market sync."}
+          <main style={{ maxWidth: TORQR_PAGE_MAX_WIDTH, margin: "0 auto", padding: "0 24px 40px" }}>
+            <div className="torqr-shell" style={{ display: "grid", gridTemplateColumns: shellGridTemplate, gap: 24, alignItems: "start", paddingTop: 24 }}>
+              <div style={{ minWidth: 0 }}>
+                <ProjectRail />
               </div>
-              {marketError ? (
-                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(245,158,11,0.78)" }}>
-                  {marketError}
-                </div>
-              ) : null}
-            </div>
-            <div className="torqr-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, margin: "24px 0", borderRadius: 14, overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
-              {STAT_DEFS.map(([label, icon], index) => (
-                <div key={label} style={{ padding: "20px 24px", background: "rgba(255,255,255,0.02)", borderRight: index < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#00e5ff" }}>{icon}</span>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'JetBrains Mono',monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.22)" }}>
+                    {market.source === "api" ? "Synced from Torqr indexer." : market.source === "chain" ? "Indexer unavailable. Using live on-chain fallback." : isMarketLoading ? "Syncing Torqr market..." : "Waiting for market sync."}
                   </div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{formatTorqrStatValue(label, market.stats)}</div>
+                  {marketError ? (
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(245,158,11,0.78)" }}>
+                      {marketError}
+                    </div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
+                <div className="torqr-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, margin: "24px 0", borderRadius: 14, overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
+                  {STAT_DEFS.map(([label, icon], index) => (
+                    <div key={label} style={{ padding: "20px 24px", background: "rgba(255,255,255,0.02)", borderRight: index < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#00e5ff" }}>{icon}</span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'JetBrains Mono',monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+                      </div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{formatTorqrStatValue(label, market.stats)}</div>
+                    </div>
+                  ))}
+                </div>
 
-            <div className="torqr-header" style={{ display: "grid", gridTemplateColumns: "32px 44px 1fr auto auto auto", alignItems: "center", gap: 14, padding: "10px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              {["#", "", "Token", "Market Cap", "Volume", "Progress"].map((heading, index) => (
-                <span key={`${heading}-${index}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "rgba(255,255,255,0.15)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: index > 2 ? "right" : "left", minWidth: index === 3 ? 70 : index > 3 ? 60 : undefined }}>{heading}</span>
-              ))}
-            </div>
+                <div className="torqr-header" style={{ display: "grid", gridTemplateColumns: "32px 44px 1fr auto auto auto", alignItems: "center", gap: 14, padding: "10px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  {["#", "", "Token", "Market Cap", "Volume", "Progress"].map((heading, index) => (
+                    <span key={`${heading}-${index}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "rgba(255,255,255,0.15)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: index > 2 ? "right" : "left", minWidth: index === 3 ? 70 : index > 3 ? 60 : undefined }}>{heading}</span>
+                  ))}
+                </div>
 
-            <div style={{ marginBottom: 40 }}>
-              {isMarketLoading && visibleTokens.length === 0 ? (
-                <div style={{ padding: "60px 0", textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>Syncing live Torqr tokens...</div>
-              ) : visibleTokens.length === 0 ? (
-                <div style={{ padding: "60px 0", textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 14 }}>No tokens found</div>
-              ) : (
-                visibleTokens.map((token, index) => (
-                  <TokenRow key={token.address} token={token} index={index} onOpen={openToken} />
-                ))
-              )}
+                <div style={{ marginBottom: 40 }}>
+                  {isMarketLoading && visibleTokens.length === 0 ? (
+                    <div style={{ padding: "60px 0", textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>Syncing live Torqr tokens...</div>
+                  ) : visibleTokens.length === 0 ? (
+                    <div style={{ padding: "60px 0", textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 14 }}>No tokens found</div>
+                  ) : (
+                    visibleTokens.map((token, index) => (
+                      <TokenRow key={token.address} token={token} index={index} onOpen={openToken} />
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </main>
 
@@ -980,7 +1009,7 @@ export default function TorqrHub() {
           ) : null}
 
           <footer style={{ borderTop: "1px solid rgba(255,255,255,0.04)", padding: "20px 24px" }}>
-            <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ maxWidth: TORQR_PAGE_MAX_WIDTH, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.15)" }}>torqr | Token launchpad on WorldLand | Open source (MIT)</span>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
                 <button onClick={() => setShowGuide(true)} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", cursor: "pointer", background: "transparent", border: "none", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.08)", textUnderlineOffset: 3 }}>{TORQR_HUB_COPY.guideButton}</button>
