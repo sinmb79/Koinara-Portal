@@ -1,11 +1,18 @@
 import { Link } from "react-router-dom"
 import StarRating from "./StarRating.jsx"
+import { getTorqrAction } from "../lib/torqrLinks.js"
+import { TORQR_APP_URL } from "../lib/torqrIntegration.js"
 
 export default function AgentCard({
   agent,
   href,
   ctaLabel,
 }) {
+  const torqrAction = getTorqrAction({
+    appUrl: TORQR_APP_URL,
+    tokenAddress: agent.torqrTokenAddress,
+  })
+
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-primary/10 bg-slate-900/45 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] transition-all hover:border-primary/40 hover:shadow-[0_0_24px_rgba(0,255,180,0.12)]">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-emerald-300 to-transparent opacity-80" />
@@ -54,6 +61,20 @@ export default function AgentCard({
           <StarRating value={agent.rating || 0} count={agent.ratingCount} />
           <span className="text-xs text-slate-500">{agent.online ? agent.latency || "~1.2s" : "Offline"}</span>
         </div>
+
+        {torqrAction ? (
+          <a
+            href={torqrAction.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 text-sm font-semibold text-blue-300 transition-all hover:border-blue-400/30 hover:text-blue-200"
+          >
+            <span className="material-symbols-outlined text-base">
+              {torqrAction.kind === "view" ? "open_in_new" : "rocket_launch"}
+            </span>
+            {torqrAction.label}
+          </a>
+        ) : null}
 
         <Link
           to={href}

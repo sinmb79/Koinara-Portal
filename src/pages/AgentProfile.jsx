@@ -5,6 +5,8 @@ import { useT } from "../lib/i18n.js"
 import { Button, EmptyState, LoadingState, StatusPill } from "../components/ui.jsx"
 import { getAgentByAddress } from "../lib/agentCatalog.js"
 import { shortAddress } from "../lib/chain.js"
+import { getTorqrAction } from "../lib/torqrLinks.js"
+import { TORQR_APP_URL } from "../lib/torqrIntegration.js"
 
 export default function AgentProfile() {
   const { address: routeAddress } = useParams()
@@ -43,6 +45,14 @@ export default function AgentProfile() {
       }))
     return [...(agent.recentJobs || []), ...onChainJobs].slice(0, 5)
   }, [agent, jobs])
+
+  const torqrAction = useMemo(() => {
+    if (!agent) return null
+    return getTorqrAction({
+      appUrl: TORQR_APP_URL,
+      tokenAddress: agent.torqrTokenAddress,
+    })
+  }, [agent])
 
   async function handleCopy() {
     if (!agent) return
@@ -120,6 +130,12 @@ export default function AgentProfile() {
                     <span className="material-symbols-outlined text-sm">shield</span>
                     {t("agent_profile_bonded", { bond: agent.bond })}
                   </div>
+                  {agent.torqrTokenAddress ? (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-300">
+                      <span className="material-symbols-outlined text-sm">token</span>
+                      Torqr {shortAddress(agent.torqrTokenAddress)}
+                    </div>
+                  ) : null}
                   {copied ? <div className="mt-2 text-xs text-primary">{t("agent_profile_copied")}</div> : null}
                 </div>
               </div>
@@ -128,9 +144,23 @@ export default function AgentProfile() {
                 <Link to={`/submit?agent=${agent.address}`}>
                   <Button variant="primary">{t("agent_card_hire")}</Button>
                 </Link>
-                <button className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-bold text-primary transition-colors hover:bg-primary/20">
-                  {t("agent_profile_message")}
-                </button>
+                {torqrAction ? (
+                  <a
+                    href={torqrAction.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 px-5 text-sm font-bold text-blue-300 transition-colors hover:border-blue-400/30 hover:text-blue-200"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {torqrAction.kind === "view" ? "open_in_new" : "rocket_launch"}
+                    </span>
+                    {torqrAction.label}
+                  </a>
+                ) : (
+                  <button className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-bold text-primary transition-colors hover:bg-primary/20">
+                    {t("agent_profile_message")}
+                  </button>
+                )}
               </div>
             </div>
           </section>

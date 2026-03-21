@@ -8,6 +8,7 @@ import { Button, StatusPill } from "./ui.jsx"
 import { shortAddress, SUPPORTED_CHAINS, WORLDLAND, BASE } from "../lib/chain.js"
 import { discoverInjectedWallets } from "../lib/wallet.js"
 import SearchBar from "./SearchBar.jsx"
+import { getMainNavItems, getSecondaryNavItems } from "../lib/navigation.js"
 
 function formatWalletError(error, t) {
   const message = String(error?.reason || error?.message || "").toLowerCase()
@@ -59,22 +60,8 @@ export default function Navbar() {
   const [walletOptions, setWalletOptions] = useState([])
   const lastWalletErrorRef = useRef({ message: "", time: 0 })
 
-  const mainNavItems = [
-    ["/ecosystem", "Ecosystem"],
-    ["/", t("nav_home")],
-    ["/dashboard", t("nav_dashboard")],
-    ["/agents", t("nav_agents")],
-    ["/missions", "Missions"],
-    ["/tokenomics", "Tokenomics"],
-    ["/dashboard/bond", t("nav_staking")],
-    ["/guide", t("nav_docs")],
-  ]
-
-  const secondaryNavItems = [
-    ["/jobs", t("nav_jobs")],
-    ["/submit", t("nav_create")],
-    ["/providers", t("nav_providers")],
-  ]
+  const mainNavItems = getMainNavItems(t)
+  const secondaryNavItems = getSecondaryNavItems(t)
 
   function showWalletError(error) {
     const message = formatWalletError(error, t)

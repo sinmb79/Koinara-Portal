@@ -1,4 +1,5 @@
-import { PROJECTS, ActionLink } from "../components/Ecosystem/ProjectRail.jsx"
+import { ActionLink } from "../components/Ecosystem/ProjectRail.jsx"
+import { PROJECTS } from "../lib/ecosystemProjects.js"
 
 const NETWORKS = [
   { label: "Worldland", tone: "border-primary/20 bg-primary/10 text-primary" },

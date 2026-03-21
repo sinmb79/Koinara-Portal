@@ -1,8 +1,12 @@
 import { ethers } from "ethers"
 import { ADDRESSES, NODE_REGISTRY_ABI, NODE_STAKING_ABI } from "../abi/index.js"
 import { WORLDLAND, shortAddress } from "./chain.js"
+import { TORQR_BRIDGE_ABI, TORQR_BRIDGE_ADDRESS, TORQR_ZERO_ADDRESS } from "./torqrIntegration.js"
 
 const STORAGE_KEY = "koinara_agent_services_v1"
+const TORQR_LOOKUP_TIMEOUT_MS = 1200
+const TORQR_CACHE_TTL_MS = 60_000
+const torqrTokenAddressCache = new Map()
 
 export const AGENT_CATEGORIES = [
   { id: "all", label: "All Categories", icon: "apps" },
@@ -292,6 +296,79 @@ function normalizeAddress(address) {
   }
 }
 
+function normalizeTorqrTokenAddress(address) {
+  const checksum = normalizeAddress(address)
+  if (!checksum) return null
+  if (checksum.toLowerCase() === TORQR_ZERO_ADDRESS.toLowerCase()) return null
+  return checksum
+}
+
+function getTorqrCacheKey(address) {
+  return String(address || "").toLowerCase()
+}
+
+function readTorqrCache(torqrCache, address) {
+  if (!torqrCache) return undefined
+  const cacheKey = getTorqrCacheKey(address)
+  const cached = torqrCache.get(cacheKey)
+  if (!cached) return undefined
+  if (cached.expiresAt <= Date.now()) {
+    torqrCache.delete(cacheKey)
+    return undefined
+  }
+  return cached.value
+}
+
+function writeTorqrCache(torqrCache, address, value) {
+  if (!torqrCache) return value
+  torqrCache.set(getTorqrCacheKey(address), {
+    value,
+    expiresAt: Date.now() + TORQR_CACHE_TTL_MS,
+  })
+  return value
+}
+
+async function withSoftTimeout(promise, timeoutMs, fallbackValue) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return promise
+  }
+
+  let timeoutId = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => resolve(fallbackValue), timeoutMs)
+      }),
+    ])
+  } catch {
+    return fallbackValue
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
+async function readTorqrTokenAddressWithCache(torqrBridge, address, { torqrCache, torqrTimeoutMs }) {
+  if (!torqrBridge) return null
+  const cachedValue = readTorqrCache(torqrCache, address)
+  if (cachedValue !== undefined) {
+    return cachedValue
+  }
+
+  const tokenAddress = await withSoftTimeout(
+    torqrBridge.getTokenForAgent(address),
+    torqrTimeoutMs,
+    null,
+  )
+  return writeTorqrCache(
+    torqrCache,
+    address,
+    normalizeTorqrTokenAddress(tokenAddress),
+  )
+}
+
 function readStoredCatalog() {
   if (typeof window === "undefined") return {}
   return safeParse(window.localStorage.getItem(STORAGE_KEY))
@@ -352,6 +429,7 @@ function buildLocalAgent(address, payload) {
     ],
     recentJobs: payload.recentJobs || [],
     signature: payload.signature || null,
+    torqrTokenAddress: normalizeTorqrTokenAddress(payload.torqrTokenAddress),
     updatedAt: payload.updatedAt || null,
   }
 }
@@ -364,36 +442,18 @@ async function enrichWithChain(agentMap) {
     const provider = new ethers.JsonRpcProvider(WORLDLAND.rpcUrls[0], WORLDLAND.chainId)
     const nodeRegistry = new ethers.Contract(ADDRESSES.nodeReg, NODE_REGISTRY_ABI, provider)
     const nodeStaking = new ethers.Contract(ADDRESSES.nodeStaking, NODE_STAKING_ABI, provider)
+    const torqrBridge = TORQR_BRIDGE_ADDRESS
+      ? new ethers.Contract(TORQR_BRIDGE_ADDRESS, TORQR_BRIDGE_ABI, provider)
+      : null
 
     const enriched = await Promise.all(
-      addresses.map(async (address) => {
-        const base = agentMap[address]
-        try {
-          const [node, stake, currentEpoch] = await Promise.all([
-            nodeRegistry.getNode(address),
-            nodeStaking.getStake(address),
-            nodeRegistry.currentEpoch(),
-          ])
-          const stakeAmount = Number(ethers.formatEther(stake.amount || 0n))
-          const isRegistered = Number(node.registeredAt || 0) > 0
-          const bond = stakeAmount > 0 ? `${stakeAmount.toFixed(stakeAmount >= 100 ? 0 : 2)} WLC` : base.bond
-          return {
-            ...base,
-            registered: isRegistered,
-            online: isRegistered
-              ? Boolean(node.active) && Number(node.lastHeartbeatEpoch || 0) >= Number(currentEpoch) - 2
-              : base.online,
-            nodeRole: Number(node.role || 0),
-            nodeMetadataHash: node.metadataHash,
-            lastHeartbeatEpoch: Number(node.lastHeartbeatEpoch || 0),
-            bond,
-            bondValue: stakeAmount || base.bondValue,
-            verified: isRegistered ? true : Boolean(base.verified),
-          }
-        } catch {
-          return base
-        }
-      }),
+      addresses.map((address) =>
+        enrichAgentWithChainData(agentMap[address], address, {
+          nodeRegistry,
+          nodeStaking,
+          torqrBridge,
+        }),
+      ),
     )
 
     return enriched
@@ -402,11 +462,55 @@ async function enrichWithChain(agentMap) {
   }
 }
 
+export async function enrichAgentWithChainData(
+  base,
+  address,
+  {
+    nodeRegistry,
+    nodeStaking,
+    torqrBridge,
+    torqrCache = torqrTokenAddressCache,
+    torqrTimeoutMs = TORQR_LOOKUP_TIMEOUT_MS,
+  },
+) {
+  try {
+    const [node, stake, currentEpoch] = await Promise.all([
+      nodeRegistry.getNode(address),
+      nodeStaking.getStake(address),
+      nodeRegistry.currentEpoch(),
+    ])
+    const torqrTokenAddress = await readTorqrTokenAddressWithCache(torqrBridge, address, {
+      torqrCache,
+      torqrTimeoutMs,
+    })
+    const stakeAmount = Number(ethers.formatEther(stake.amount || 0n))
+    const isRegistered = Number(node.registeredAt || 0) > 0
+    const bond = stakeAmount > 0 ? `${stakeAmount.toFixed(stakeAmount >= 100 ? 0 : 2)} WLC` : base.bond
+
+    return {
+      ...base,
+      registered: isRegistered,
+      online: isRegistered
+        ? Boolean(node.active) && Number(node.lastHeartbeatEpoch || 0) >= Number(currentEpoch) - 2
+        : base.online,
+      nodeRole: Number(node.role || 0),
+      nodeMetadataHash: node.metadataHash,
+      lastHeartbeatEpoch: Number(node.lastHeartbeatEpoch || 0),
+      bond,
+      bondValue: stakeAmount || base.bondValue,
+      verified: isRegistered ? true : Boolean(base.verified),
+      torqrTokenAddress: torqrTokenAddress || base.torqrTokenAddress || null,
+    }
+  } catch {
+    return base
+  }
+}
+
 function combineSources() {
   const map = {}
   for (const agent of DEMO_AGENTS) {
     const checksum = normalizeAddress(agent.address)
-    map[checksum] = { ...agent, address: checksum }
+    map[checksum] = { ...agent, address: checksum, torqrTokenAddress: normalizeTorqrTokenAddress(agent.torqrTokenAddress) }
   }
 
   const stored = readStoredCatalog()
