@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
+import { toast } from "react-hot-toast"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { TORQR_HUB_COPY } from "../lib/torqrHubContent.js"
+import useStore from "../lib/store.js"
+import { WORLDLAND } from "../lib/chain.js"
+import { discoverInjectedWallets } from "../lib/wallet.js"
+import {
+  formatTorqrWalletLabel,
+  getTorqrCreateButtonState,
+  getTorqrWalletConnectAction,
+} from "../lib/torqrWallet.js"
 
 const HOME_ROUTE = "/torqr"
 
@@ -65,6 +75,30 @@ function persistGateState(nextState) {
   if (typeof window === "undefined") return
   if (nextState === "ok") window.localStorage.setItem("torqr_gate_state", "accepted")
   else window.localStorage.removeItem("torqr_gate_state")
+}
+
+function formatTorqrWalletError(error) {
+  const code = error?.code
+  const message = String(error?.reason || error?.message || "")
+  const normalized = message.toLowerCase()
+
+  if (code === -32002 || normalized.includes("already processing eth_requestaccounts")) {
+    return "A wallet request is already pending."
+  }
+
+  if (code === 4001 || normalized.includes("user rejected") || normalized.includes("rejected")) {
+    return "Wallet connection was rejected."
+  }
+
+  if (normalized.includes("wallet selection required")) {
+    return "Choose a wallet to continue."
+  }
+
+  if (normalized.includes("no compatible wallet provider found")) {
+    return "No compatible wallet provider was found."
+  }
+
+  return message || "Wallet connection failed."
 }
 
 function ProgressBar({ value, graduated }) {
@@ -239,8 +273,15 @@ function TermsModal({ onClose }) {
   )
 }
 
-function CreateModal({ walletConnected, form, onChange, onClose }) {
+function CreateModal({ address, chainId, isConnecting, form, onChange, onClose, onPrimaryAction }) {
   const ready = Boolean(form.name && form.symbol)
+  const primaryButton = getTorqrCreateButtonState({
+    address,
+    chainId,
+    isConnecting,
+    isReady: ready,
+  })
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "grid", placeItems: "center", padding: 24, animation: "modalBg 0.2s ease" }}>
       <div onClick={(event) => event.stopPropagation()} style={{ width: "100%", maxWidth: 460, background: "#0e0e1a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, overflow: "hidden", animation: "slideUp 0.3s ease" }}>
@@ -280,12 +321,78 @@ function CreateModal({ walletConnected, form, onChange, onClose }) {
               </div>
             ))}
           </div>
-          <button disabled={!ready} style={{ width: "100%", padding: "14px 0", borderRadius: 10, border: "none", cursor: ready ? "pointer" : "not-allowed", background: ready ? "linear-gradient(135deg,#00e5ff,#6366f1)" : "rgba(255,255,255,0.06)", color: ready ? "#08080e" : "rgba(255,255,255,0.2)", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>
-            {walletConnected ? "Deploy Token" : "Connect Wallet to Deploy"}
+          <button
+            onClick={primaryButton.disabled ? undefined : onPrimaryAction}
+            disabled={primaryButton.disabled}
+            style={{
+              width: "100%",
+              padding: "14px 0",
+              borderRadius: 10,
+              border: "none",
+              cursor: primaryButton.disabled ? "not-allowed" : "pointer",
+              background: primaryButton.disabled ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg,#00e5ff,#6366f1)",
+              color: primaryButton.disabled ? "rgba(255,255,255,0.2)" : "#08080e",
+              fontFamily: "'Syne',sans-serif",
+              fontWeight: 700,
+              fontSize: 15,
+            }}
+          >
+            {primaryButton.label}
           </button>
         </div>
       </div>
     </div>
+  )
+}
+
+function WalletPickerModal({ wallets, onClose, onSelect }) {
+  if (!wallets.length || typeof document === "undefined") return null
+
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(4,10,16,0.84)", backdropFilter: "blur(12px)", display: "grid", placeItems: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 640, borderRadius: 24, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "#15111b", boxShadow: "0 32px 120px rgba(0,0,0,0.55)" }}>
+        <div style={{ padding: "24px 28px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "radial-gradient(circle at top,rgba(0,255,180,0.08),transparent 50%), linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 16 }}>
+            <div>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(0,255,180,0.8)" }}>Wallet Access</div>
+              <h3 style={{ marginTop: 10, fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 28, color: "#f0f0f5" }}>Choose a wallet</h3>
+              <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,0.42)" }}>Torqr uses the same Koinara wallet connection flow. Pick the wallet you want to use for deployment.</p>
+            </div>
+            <button onClick={onClose} style={{ height: 42, padding: "0 16px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "transparent", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontWeight: 600 }}>
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: 20, display: "grid", gap: 12 }}>
+          {wallets.map((wallet) => (
+            <button
+              key={wallet.id}
+              onClick={() => onSelect(wallet.id)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%", padding: "16px 18px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", cursor: "pointer", textAlign: "left" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 16, display: "grid", placeItems: "center", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", overflow: "hidden", flexShrink: 0 }}>
+                  {wallet.logo ? (
+                    <img src={wallet.logo} alt="" style={{ width: 36, height: 36, objectFit: "contain" }} />
+                  ) : (
+                    <span style={{ fontSize: 24, color: "#00e5ff" }}>W</span>
+                  )}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#ffffff" }}>{wallet.name}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, fontFamily: "'JetBrains Mono',monospace", color: "rgba(255,255,255,0.35)" }}>{wallet.shortLabel || wallet.id}</div>
+                </div>
+              </div>
+              <span style={{ padding: "10px 14px", borderRadius: 14, border: "1px solid rgba(0,255,180,0.16)", color: "#ffffff", fontWeight: 700 }}>
+                Select
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -345,11 +452,20 @@ function DetailModal({ token, onClose }) {
 export default function TorqrHub() {
   const navigate = useNavigate()
   const location = useLocation()
+  const {
+    address,
+    chainId,
+    isConnecting,
+    connect,
+    disconnect,
+    switchChain,
+  } = useStore()
   const [gate, setGate] = useState(loadGateState)
   const [checks, setChecks] = useState({ a: false, b: false, c: false })
   const [tab, setTab] = useState("trending")
   const [search, setSearch] = useState("")
-  const [walletConnected, setWalletConnected] = useState(false)
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false)
+  const [walletOptions, setWalletOptions] = useState([])
   const [showTerms, setShowTerms] = useState(false)
   const [form, setForm] = useState({ name: "", symbol: "", desc: "", img: "" })
 
@@ -385,6 +501,15 @@ export default function TorqrHub() {
     }
   }, [search, tab])
 
+  const walletConnected = Boolean(address)
+  const walletLabel = isConnecting
+    ? "Connecting..."
+    : !walletConnected
+      ? TORQR_HUB_COPY.connectWallet
+      : chainId !== WORLDLAND.chainId
+        ? "Switch Worldland"
+        : formatTorqrWalletLabel({ address })
+
   function toggleCheck(key) {
     setChecks((prev) => ({ ...prev, [key]: !prev[key] }))
   }
@@ -403,6 +528,89 @@ export default function TorqrHub() {
 
   function openToken(token) {
     navigate(`/torqr/token/${token.slug}`)
+  }
+
+  async function runWalletConnect(walletId = null) {
+    try {
+      await connect(walletId)
+      setWalletPickerOpen(false)
+    } catch (error) {
+      toast.error(formatTorqrWalletError(error), { id: "torqr-wallet-error" })
+    }
+  }
+
+  async function handleConnect() {
+    if (isConnecting) return
+
+    const wallets = await discoverInjectedWallets()
+    const action = getTorqrWalletConnectAction({
+      wallets,
+      userAgent: typeof navigator === "undefined" ? "" : navigator.userAgent,
+      href: typeof window === "undefined" ? "" : window.location.href,
+    })
+
+    if (action.type === "deeplink") {
+      window.location.href = action.href
+      return
+    }
+
+    if (action.type === "picker") {
+      setWalletOptions(wallets)
+      setWalletPickerOpen(true)
+      return
+    }
+
+    if (action.type === "missing") {
+      toast.error("No compatible wallet provider was found.", { id: "torqr-wallet-error" })
+      return
+    }
+
+    await runWalletConnect(action.walletId)
+  }
+
+  async function handleWalletButton() {
+    if (!walletConnected) {
+      await handleConnect()
+      return
+    }
+
+    if (chainId !== WORLDLAND.chainId) {
+      try {
+        await switchChain(WORLDLAND)
+      } catch (error) {
+        toast.error(formatTorqrWalletError(error), { id: "torqr-wallet-switch-error" })
+      }
+      return
+    }
+
+    disconnect()
+  }
+
+  async function handleCreatePrimaryAction() {
+    const primaryButton = getTorqrCreateButtonState({
+      address,
+      chainId,
+      isConnecting,
+      isReady: Boolean(form.name && form.symbol),
+    })
+
+    if (primaryButton.intent === "connect") {
+      await handleConnect()
+      return
+    }
+
+    if (primaryButton.intent === "switch") {
+      try {
+        await switchChain(WORLDLAND)
+      } catch (error) {
+        toast.error(formatTorqrWalletError(error), { id: "torqr-wallet-switch-error" })
+      }
+      return
+    }
+
+    if (primaryButton.intent === "deploy") {
+      toast("Live token deployment wiring is next.", { id: "torqr-deploy-pending" })
+    }
   }
 
   return (
@@ -456,8 +664,34 @@ export default function TorqrHub() {
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tokens..." style={{ width: 200, padding: "8px 12px 8px 34px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 12, fontFamily: "'DM Sans',sans-serif" }} />
                 </div>
                 <button onClick={openCreate} style={{ padding: "9px 20px", borderRadius: 8, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#00e5ff,#6366f1)", color: "#08080e", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>+ {TORQR_HUB_COPY.createButton}</button>
-                <button onClick={() => setWalletConnected((value) => !value)} style={{ padding: "9px 18px", borderRadius: 8, border: walletConnected ? "1px solid rgba(34,197,94,0.3)" : "1px solid rgba(255,255,255,0.08)", background: walletConnected ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.03)", color: walletConnected ? "#22c55e" : "rgba(255,255,255,0.5)", fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "'JetBrains Mono',monospace" }}>
-                  {walletConnected ? "0x7a3f...e21b" : TORQR_HUB_COPY.connectWallet}
+                <button
+                  onClick={handleWalletButton}
+                  style={{
+                    padding: "9px 18px",
+                    borderRadius: 8,
+                    border: !walletConnected
+                      ? "1px solid rgba(255,255,255,0.08)"
+                      : chainId === WORLDLAND.chainId
+                        ? "1px solid rgba(34,197,94,0.3)"
+                        : "1px solid rgba(245,158,11,0.3)",
+                    background: !walletConnected
+                      ? "rgba(255,255,255,0.03)"
+                      : chainId === WORLDLAND.chainId
+                        ? "rgba(34,197,94,0.08)"
+                        : "rgba(245,158,11,0.08)",
+                    color: !walletConnected
+                      ? "rgba(255,255,255,0.5)"
+                      : chainId === WORLDLAND.chainId
+                        ? "#22c55e"
+                        : "#f59e0b",
+                    fontWeight: 600,
+                    fontSize: 12,
+                    cursor: isConnecting ? "wait" : "pointer",
+                    fontFamily: "'JetBrains Mono',monospace",
+                  }}
+                  title={walletConnected && chainId === WORLDLAND.chainId ? "Click to disconnect" : undefined}
+                >
+                  {walletLabel}
                 </button>
               </div>
             </div>
@@ -500,9 +734,26 @@ export default function TorqrHub() {
             </div>
           </main>
 
-          {showCreate ? <CreateModal walletConnected={walletConnected} form={form} onChange={updateForm} onClose={closeModal} /> : null}
+          {showCreate ? (
+            <CreateModal
+              address={address}
+              chainId={chainId}
+              isConnecting={isConnecting}
+              form={form}
+              onChange={updateForm}
+              onClose={closeModal}
+              onPrimaryAction={handleCreatePrimaryAction}
+            />
+          ) : null}
           {selectedToken ? <DetailModal token={selectedToken} onClose={closeModal} /> : null}
           {showTerms ? <TermsModal onClose={() => setShowTerms(false)} /> : null}
+          {walletPickerOpen ? (
+            <WalletPickerModal
+              wallets={walletOptions}
+              onClose={() => setWalletPickerOpen(false)}
+              onSelect={runWalletConnect}
+            />
+          ) : null}
 
           <footer style={{ borderTop: "1px solid rgba(255,255,255,0.04)", padding: "20px 24px" }}>
             <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
