@@ -3,9 +3,8 @@ import { WORLDLAND, shortAddress } from "./chain.js"
 import {
   TORQR_APP_URL,
   TORQR_BONDING_CURVE_ABI,
-  TORQR_BONDING_CURVE_ADDRESS,
+  TORQR_FACTORY_STACKS,
   TORQR_FACTORY_ABI,
-  TORQR_FACTORY_ADDRESS,
   TORQR_INDEXER_API_BASE_URL,
 } from "./torqrIntegration.js"
 
@@ -253,11 +252,15 @@ function getReadProvider() {
   return sharedReadProvider
 }
 
-function createContracts(provider) {
+function createContracts(provider, stack) {
   return {
-    factory: new ethers.Contract(TORQR_FACTORY_ADDRESS, TORQR_FACTORY_ABI, provider),
-    bondingCurve: new ethers.Contract(TORQR_BONDING_CURVE_ADDRESS, TORQR_BONDING_CURVE_ABI, provider),
+    factory: new ethers.Contract(stack.factoryAddress, TORQR_FACTORY_ABI, provider),
+    bondingCurve: new ethers.Contract(stack.bondingCurveAddress, TORQR_BONDING_CURVE_ABI, provider),
   }
+}
+
+function getTorqrReadStacks() {
+  return TORQR_FACTORY_STACKS.filter((stack) => stack.factoryAddress && stack.bondingCurveAddress)
 }
 
 function normalizeChainToken(address, info, curveState, progress) {
@@ -285,29 +288,47 @@ function normalizeChainToken(address, info, curveState, progress) {
 
 async function loadTorqrTokensFromChain() {
   const provider = getReadProvider()
-  const { factory, bondingCurve } = createContracts(provider)
-  const tokenAddresses = await factory.getAllTokens()
+  const stacks = getTorqrReadStacks()
+  const records = []
 
-  const records = await Promise.all(
-    tokenAddresses.map(async (tokenAddress) => {
-      try {
-        const [info, curveState, progress] = await Promise.all([
-          factory.getTokenInfo(tokenAddress),
-          bondingCurve.getCurveState(tokenAddress),
-          bondingCurve.getProgress(tokenAddress),
-        ])
-        return normalizeChainToken(tokenAddress, info, curveState, progress)
-      } catch {
-        return null
-      }
-    }),
-  )
+  for (const stack of stacks) {
+    const { factory, bondingCurve } = createContracts(provider, stack)
+    const tokenAddresses = await factory.getAllTokens()
+    const stackRecords = await Promise.all(
+      tokenAddresses.map(async (tokenAddress) => {
+        try {
+          const [info, curveState, progress] = await Promise.all([
+            factory.getTokenInfo(tokenAddress),
+            bondingCurve.getCurveState(tokenAddress),
+            bondingCurve.getProgress(tokenAddress),
+          ])
+          return {
+            ...normalizeChainToken(tokenAddress, info, curveState, progress),
+            stackKey: stack.key,
+          }
+        } catch {
+          return null
+        }
+      }),
+    )
+    records.push(...stackRecords.filter(Boolean))
+  }
 
-  return records.filter(Boolean).sort((left, right) => right.createdAt - left.createdAt)
+  return dedupeTorqrTokens(records).sort((left, right) => right.createdAt - left.createdAt)
+}
+
+function dedupeTorqrTokens(tokens) {
+  const byAddress = new Map()
+  for (const token of tokens) {
+    if (!token?.address || token.address === ZERO_ADDRESS) continue
+    byAddress.set(token.address, token)
+  }
+  return Array.from(byAddress.values())
 }
 
 async function loadAllTorqrTokens({ fetchImpl } = {}) {
   const baseUrl = resolveTorqrApiBaseUrl()
+  const chainTokens = await loadTorqrTokensFromChain()
 
   if (baseUrl) {
     try {
@@ -321,26 +342,38 @@ async function loadAllTorqrTokens({ fetchImpl } = {}) {
         },
         { fetchImpl },
       )
-      return (result?.tokens || []).map((token) => normalizeTorqrListToken({ ...token, source: "api" }))
+      return dedupeTorqrTokens([
+        ...(result?.tokens || []).map((token) => normalizeTorqrListToken({ ...token, source: "api" })),
+        ...chainTokens,
+      ])
     } catch {
       // Fall back to on-chain reads below.
     }
   }
 
-  return loadTorqrTokensFromChain()
+  return chainTokens
 }
 
 async function loadTorqrTickerFromChain(limit = DEFAULT_TICKER_LIMIT) {
   const provider = getReadProvider()
-  const { factory } = createContracts(provider)
+  const blockCache = new Map()
   const latestBlock = await provider.getBlockNumber()
   const fromBlock = Math.max(0, latestBlock - 12000)
-  const events = await factory.queryFilter(factory.filters.TokenCreated(), fromBlock, latestBlock)
-  const recentEvents = events.slice(-limit).reverse()
-  const blockCache = new Map()
+  const eventLists = await Promise.all(
+    getTorqrReadStacks().map(async (stack) => {
+      const { factory } = createContracts(provider, stack)
+      const events = await factory.queryFilter(factory.filters.TokenCreated(), fromBlock, latestBlock)
+      return events.map((event) => ({ event, stackKey: stack.key }))
+    }),
+  )
 
-  return Promise.all(
-    recentEvents.map(async (event) => {
+  const recentEvents = eventLists
+    .flat()
+    .slice(-Math.max(limit * 2, DEFAULT_TICKER_LIMIT * 2))
+    .reverse()
+
+  const items = await Promise.all(
+    recentEvents.map(async ({ event, stackKey }) => {
       const blockNumber = Number(event.blockNumber || 0)
       if (!blockCache.has(blockNumber)) {
         blockCache.set(blockNumber, await provider.getBlock(blockNumber))
@@ -355,21 +388,37 @@ async function loadTorqrTickerFromChain(limit = DEFAULT_TICKER_LIMIT) {
         amount: "1 WLC",
         time: timeAgo(timestamp),
         timestamp,
+        stackKey,
       }
     }),
   )
+
+  return items
+    .filter((item, index, list) => list.findIndex((candidate) => candidate.tokenAddress === item.tokenAddress) === index)
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .slice(0, limit)
 }
 
 async function loadTorqrTokenFromChain(address) {
   const provider = getReadProvider()
-  const { factory, bondingCurve } = createContracts(provider)
-  const [info, curveState, progress] = await Promise.all([
-    factory.getTokenInfo(address),
-    bondingCurve.getCurveState(address),
-    bondingCurve.getProgress(address),
-  ])
+  for (const stack of getTorqrReadStacks()) {
+    const { factory, bondingCurve } = createContracts(provider, stack)
+    try {
+      const [info, curveState, progress] = await Promise.all([
+        factory.getTokenInfo(address),
+        bondingCurve.getCurveState(address),
+        bondingCurve.getProgress(address),
+      ])
+      return {
+        ...normalizeChainToken(address, info, curveState, progress),
+        stackKey: stack.key,
+      }
+    } catch {
+      // Try next stack.
+    }
+  }
 
-  return normalizeChainToken(address, info, curveState, progress)
+  throw new Error("Token not found on configured Torqr stacks")
 }
 
 export async function loadTorqrMarketSnapshot({
@@ -380,6 +429,10 @@ export async function loadTorqrMarketSnapshot({
 } = {}) {
   const baseUrl = resolveTorqrApiBaseUrl()
   const apiQuery = getTorqrApiQuery(tab)
+  const chainSnapshotPromise = Promise.all([
+    loadTorqrTokensFromChain().catch(() => []),
+    loadTorqrTickerFromChain().catch(() => []),
+  ])
 
   const [tokensResult, statsResult, tickerResult] = await Promise.allSettled([
     fetchJson(
@@ -398,9 +451,14 @@ export async function loadTorqrMarketSnapshot({
     fetchJson(baseUrl, "/api/ticker", { limit: DEFAULT_TICKER_LIMIT }, { signal, fetchImpl }),
   ])
 
+  const [chainTokens, chainTicker] = await chainSnapshotPromise
+
   if (tokensResult.status === "fulfilled") {
     const tokens = applyTorqrTokenFilters(
-      (tokensResult.value?.tokens || []).map((token) => normalizeTorqrListToken({ ...token, source: "api" })),
+      dedupeTorqrTokens([
+        ...(tokensResult.value?.tokens || []).map((token) => normalizeTorqrListToken({ ...token, source: "api" })),
+        ...chainTokens,
+      ]),
       { tab, search },
     )
 
@@ -410,15 +468,18 @@ export async function loadTorqrMarketSnapshot({
     })
     const ticker =
       tickerResult.status === "fulfilled"
-        ? (tickerResult.value?.items || []).map((item) => ({
+        ? [...(tickerResult.value?.items || []).map((item) => ({
             type: item.type,
             token: item.token,
             tokenAddress: item.tokenAddress,
             amount: item.amount,
             time: item.time,
             timestamp: Number(item.timestamp || 0),
-          }))
-        : []
+          })), ...chainTicker]
+            .filter((item, index, list) => list.findIndex((candidate) => candidate.tokenAddress === item.tokenAddress && candidate.type === item.type) === index)
+            .sort((left, right) => right.timestamp - left.timestamp)
+            .slice(0, DEFAULT_TICKER_LIMIT)
+        : chainTicker
 
     return {
       source: "api",
@@ -428,11 +489,9 @@ export async function loadTorqrMarketSnapshot({
     }
   }
 
-  const tokens = applyTorqrTokenFilters(await loadTorqrTokensFromChain(), { tab, search })
-  const [ticker, selectedStats] = await Promise.all([
-    loadTorqrTickerFromChain().catch(() => []),
-    statsResult.status === "fulfilled" ? statsResult.value : null,
-  ])
+  const tokens = applyTorqrTokenFilters(chainTokens, { tab, search })
+  const ticker = chainTicker
+  const selectedStats = statsResult.status === "fulfilled" ? statsResult.value : null
 
   return {
     source: "chain",
