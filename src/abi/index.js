@@ -1,5 +1,5 @@
 // Public-safe addresses sourced from:
-// C:\Users\sinmb\koinara\worldland\deployments\worldland-mainnet-v3.public.json
+// worldland-mainnet-v3 public deployment manifest
 export const ADDRESSES = {
   timelock: "0xa8894C6BeD298ddBbE95312d5BE90eeE65D876Af",
   koin: "0x029F7EfE08F37d987c2eDeD3de4Ba4a2b9BA422B",
