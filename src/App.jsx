@@ -27,6 +27,7 @@ const MissionBoard = lazy(() => import("./pages/MissionBoard.jsx"))
 const MissionDetail = lazy(() => import("./pages/MissionDetail.jsx"))
 const Tokenomics = lazy(() => import("./pages/Tokenomics.jsx"))
 const TorqrHub = lazy(() => import("./pages/TorqrHub.jsx"))
+const Swap = lazy(() => import("./pages/Swap.jsx"))
 
 export default function App() {
   const location = useLocation()
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/dashboard/rewards" element={<Rewards />} />
         <Route path="/missions" element={<MissionBoard />} />
         <Route path="/tokenomics" element={<Tokenomics />} />
+        <Route path="/swap" element={<Swap />} />
         <Route path="/torqr/*" element={<TorqrHub />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
         <Route path="/admin" element={<Admin />} />

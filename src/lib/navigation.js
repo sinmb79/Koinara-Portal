@@ -6,6 +6,7 @@ export function getMainNavItems(t) {
     ["/agents", t("nav_agents")],
     ["/torqr", "Torqr"],
     ["/missions", "Missions"],
+    ["/swap", "Swap"],
     ["/tokenomics", "Tokenomics"],
     ["/dashboard/bond", t("nav_staking")],
     ["/guide", t("nav_docs")],

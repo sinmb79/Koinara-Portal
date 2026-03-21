@@ -1493,6 +1493,32 @@ function interpolate(template, vars = {}) {
   )
 }
 
+Object.assign(translations.en, {
+  swap_title: "Official KOIN/WLC Market",
+  swap_subtitle: "The canonical KOIN/WLC market on Worldland Mainnet. Separate from Base/demo assets and Torqr launch flows.",
+  swap_worldland_mainnet: "Worldland Mainnet",
+  swap_bootstrap_liquidity: "Bootstrap liquidity is provided by the Koinara team. Liquidity may be thin and price can move quickly.",
+  swap_canonical_koin: "Only Worldland KOIN is the canonical protocol token.",
+  swap_demo_not_interchangeable: "Demo assets are not interchangeable with canonical KOIN.",
+  swap_not_live: "Not Live Yet",
+  swap_not_live_body: "The swap will activate once the official pool address and venue are confirmed.",
+  swap_compliance: "Users are responsible for local legal and regulatory compliance.",
+  nav_swap: "Swap",
+})
+
+Object.assign(translations.ko, {
+  swap_title: "공식 KOIN/WLC 마켓",
+  swap_subtitle: "Worldland Mainnet의 공식 KOIN/WLC 마켓입니다. Base/demo 자산과는 별개입니다.",
+  swap_worldland_mainnet: "Worldland Mainnet",
+  swap_bootstrap_liquidity: "부트스트랩 유동성은 Koinara 팀에 의해 제공됩니다. 유동성이 얕을 수 있으며, 가격이 빠르게 변동될 수 있습니다.",
+  swap_canonical_koin: "Worldland KOIN만이 공식 프로토콜 토큰입니다.",
+  swap_demo_not_interchangeable: "Demo 자산은 공식 KOIN과 교환할 수 없습니다.",
+  swap_not_live: "아직 오픈되지 않았습니다",
+  swap_not_live_body: "공식 풀 주소와 거래소가 확인되면 활성화됩니다.",
+  swap_compliance: "사용자는 현지 법률 및 규제 준수에 대해 본인이 책임을 집니다.",
+  nav_swap: "Swap",
+})
+
 export function useT(lang) {
   return (key, vars) => {
     const catalog = translations[lang] || translations.en

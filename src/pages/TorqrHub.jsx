@@ -893,6 +893,7 @@ export default function TorqrHub() {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 <Link to="/ecosystem" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.52)", textDecoration: "none" }}>Koinara Protocol Home</Link>
+                <Link to="/swap" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(0,255,180,0.12)", background: "rgba(0,255,180,0.06)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#9bffcc", textDecoration: "none" }}>Official KOIN/WLC Swap</Link>
                 <button onClick={() => setShowGuide(true)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(0,229,255,0.12)", background: "rgba(0,229,255,0.06)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#9beeff", cursor: "pointer" }}>{TORQR_HUB_COPY.guideButton}</button>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "rgba(255,255,255,0.2)", pointerEvents: "none" }}>?</span>
