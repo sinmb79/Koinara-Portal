@@ -59,6 +59,20 @@ export function applyTorqrSlippage(amount, slippageBps) {
   return (normalizedAmount * BigInt(10000 - normalizedBps)) / 10000n
 }
 
+export function calculateMinimumBuyGrossWlc({
+  oneTokenNetCostWei,
+  tradingFeeBps = TORQR_TRADING_FEE_BPS,
+}) {
+  const normalizedCost = toBigInt(oneTokenNetCostWei)
+  const feeBps = Number(tradingFeeBps || 0)
+  const denominator = 10000 - feeBps
+
+  if (normalizedCost <= 0n || denominator <= 0) return 0n
+
+  const numerator = normalizedCost * 10000n
+  return (numerator + BigInt(denominator - 1)) / BigInt(denominator)
+}
+
 export async function estimateBuyTokensForWlc({
   budgetWlc,
   remainingSupply,

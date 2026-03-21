@@ -6,6 +6,7 @@ import {
   TORQR_FACTORY_STACKS,
   TORQR_FACTORY_ABI,
   TORQR_INDEXER_API_BASE_URL,
+  TORQR_TOKEN_ABI,
 } from "./torqrIntegration.js"
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -263,7 +264,7 @@ function getTorqrReadStacks() {
   return TORQR_FACTORY_STACKS.filter((stack) => stack.factoryAddress && stack.bondingCurveAddress)
 }
 
-function normalizeChainToken(address, info, curveState, progress) {
+function normalizeChainToken(address, info, curveState, progress, metadata = {}) {
   const createdAt = Number(info?.createdAt ?? info?.[4] ?? 0)
   const graduated = Boolean(info?.graduated ?? info?.[5] ?? curveState?.graduated ?? curveState?.[5] ?? false)
   const reserveWlc = curveState?.reserveWLC ?? curveState?.[4] ?? 0n
@@ -274,6 +275,8 @@ function normalizeChainToken(address, info, curveState, progress) {
     creator: info?.creator ?? info?.[1] ?? ZERO_ADDRESS,
     name: info?.name ?? info?.[2] ?? shortAddress(address),
     symbol: info?.symbol ?? info?.[3] ?? "TOKEN",
+    description: metadata.description || "",
+    imageUri: metadata.imageUri || "",
     createdAt,
     createdAgo: timeAgo(createdAt),
     graduated,
@@ -284,6 +287,22 @@ function normalizeChainToken(address, info, curveState, progress) {
     volume24h: "0",
     source: "chain",
   })
+}
+
+async function loadTorqrTokenMetadata(provider, tokenAddress) {
+  try {
+    const token = new ethers.Contract(tokenAddress, TORQR_TOKEN_ABI, provider)
+    const [description, imageUri] = await Promise.all([
+      token.description().catch(() => ""),
+      token.imageURI().catch(() => ""),
+    ])
+    return {
+      description: String(description || "").trim(),
+      imageUri: String(imageUri || "").trim(),
+    }
+  } catch {
+    return { description: "", imageUri: "" }
+  }
 }
 
 async function loadTorqrTokensFromChain() {
@@ -297,13 +316,14 @@ async function loadTorqrTokensFromChain() {
     const stackRecords = await Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          const [info, curveState, progress] = await Promise.all([
+          const [info, curveState, progress, metadata] = await Promise.all([
             factory.getTokenInfo(tokenAddress),
             bondingCurve.getCurveState(tokenAddress),
             bondingCurve.getProgress(tokenAddress),
+            loadTorqrTokenMetadata(provider, tokenAddress),
           ])
           return {
-            ...normalizeChainToken(tokenAddress, info, curveState, progress),
+            ...normalizeChainToken(tokenAddress, info, curveState, progress, metadata),
             stackKey: stack.key,
           }
         } catch {
@@ -404,13 +424,14 @@ async function loadTorqrTokenFromChain(address) {
   for (const stack of getTorqrReadStacks()) {
     const { factory, bondingCurve } = createContracts(provider, stack)
     try {
-      const [info, curveState, progress] = await Promise.all([
+      const [info, curveState, progress, metadata] = await Promise.all([
         factory.getTokenInfo(address),
         bondingCurve.getCurveState(address),
         bondingCurve.getProgress(address),
+        loadTorqrTokenMetadata(provider, address),
       ])
       return {
-        ...normalizeChainToken(address, info, curveState, progress),
+        ...normalizeChainToken(address, info, curveState, progress, metadata),
         stackKey: stack.key,
       }
     } catch {

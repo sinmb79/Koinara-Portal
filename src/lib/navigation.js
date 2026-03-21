@@ -12,6 +12,12 @@ export function getMainNavItems(t) {
   ]
 }
 
+export function getNavbarDesktopUtilityState({ connected = false } = {}) {
+  return {
+    showSearch: !connected,
+  }
+}
+
 export function getSecondaryNavItems(t) {
   return [
     ["/jobs", t("nav_jobs")],

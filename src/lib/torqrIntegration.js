@@ -60,6 +60,8 @@ export const TORQR_BONDING_CURVE_ABI = [
   "function sell(address token,uint256 amount,uint256 minWLCOut) returns (uint256)",
   "function getBuyPrice(address token,uint256 amount) view returns (uint256)",
   "function getSellPrice(address token,uint256 amount) view returns (uint256)",
+  "event Buy(address indexed token,address indexed buyer,uint256 wlcIn,uint256 tokensOut,uint256 fee)",
+  "event Sell(address indexed token,address indexed seller,uint256 tokensIn,uint256 wlcOut,uint256 fee)",
 ]
 
 export const TORQR_BRIDGE_ABI = [
@@ -72,10 +74,13 @@ export const TORQR_POOL_ABI = [
   "function getAmountOut(bool wlcIn,uint256 amountIn) view returns (uint256)",
   "function getReserves() view returns (uint256,uint256)",
   "function swap(bool wlcIn,uint256 amountIn,uint256 minAmountOut) payable returns (uint256)",
+  "event Swap(address indexed sender,bool wlcIn,uint256 amountIn,uint256 amountOut)",
 ]
 
 export const TORQR_TOKEN_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function allowance(address owner,address spender) view returns (uint256)",
   "function approve(address spender,uint256 amount) returns (bool)",
+  "function description() view returns (string)",
+  "function imageURI() view returns (string)",
 ]

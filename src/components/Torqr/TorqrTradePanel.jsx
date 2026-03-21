@@ -10,6 +10,7 @@ import {
   TORQR_TOKEN_ABI,
 } from "../../lib/torqrIntegration.js"
 import {
+  calculateMinimumBuyGrossWlc,
   TORQR_DEFAULT_SLIPPAGE,
   TORQR_SLIPPAGE_OPTIONS,
   TORQR_TRADING_FEE_BPS,
@@ -62,6 +63,7 @@ export default function TorqrTradePanel({
   onSwitchWorldland,
   onRefreshMarket,
 }) {
+  const oneTokenUnit = 10n ** 18n
   const [stack, setStack] = useState(null)
   const [resolvedToken, setResolvedToken] = useState(token)
   const [curveState, setCurveState] = useState(null)
@@ -72,6 +74,7 @@ export default function TorqrTradePanel({
   const [buyQuote, setBuyQuote] = useState(0n)
   const [sellQuote, setSellQuote] = useState(0n)
   const [swapQuote, setSwapQuote] = useState(0n)
+  const [minimumBuyWlc, setMinimumBuyWlc] = useState(0n)
   const [reserves, setReserves] = useState({ wlc: 0n, token: 0n })
   const [balance, setBalance] = useState(0n)
   const [allowance, setAllowance] = useState(0n)
@@ -95,10 +98,11 @@ export default function TorqrTradePanel({
   const minBuyTokens = applyTorqrSlippage(buyQuote, slippageBps)
   const minSellWlc = applyTorqrSlippage(sellQuote, slippageBps)
   const minSwapOut = applyTorqrSlippage(swapQuote, slippageBps)
+  const minimumBuyRequired = !resolvedToken.graduated && mode === "buy" && parsedAmount > 0n && !quotePending && buyQuote <= 0n && minimumBuyWlc > 0n
   const actionLabel = resolvedToken.graduated
     ? getTorqrSwapPrimaryActionLabel({ isConnected, isCorrectChain, isBusy: busy, requiresApproval, txAction })
     : getTorqrTradePrimaryActionLabel({ isConnected, isCorrectChain, isBusy: busy, tradeMode: mode, requiresApproval, txAction })
-  const actionDisabled = busy || loading || (resolvedToken.graduated && !resolvedToken.poolAddress) || (isConnected && isCorrectChain && parsedAmount <= 0n)
+  const actionDisabled = busy || loading || (resolvedToken.graduated && !resolvedToken.poolAddress) || (isConnected && isCorrectChain && (parsedAmount <= 0n || minimumBuyRequired))
 
   async function resolveStack() {
     const candidates = token.stackKey
@@ -182,6 +186,7 @@ export default function TorqrTradePanel({
   }
 
   useEffect(() => {
+    setMinimumBuyWlc(0n)
     setResolvedToken(token)
     setAmount("")
     setError("")
@@ -211,6 +216,29 @@ export default function TorqrTradePanel({
     })()
     return () => { cancelled = true }
   }, [resolvedToken.graduated, resolvedToken.poolAddress])
+
+  useEffect(() => {
+    if (!stack || resolvedToken.graduated || remainingSupply <= 0n) {
+      setMinimumBuyWlc(0n)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const bonding = new ethers.Contract(stack.bondingCurveAddress, TORQR_BONDING_CURVE_ABI, readProvider)
+        const minimumTokenAmount = remainingSupply < oneTokenUnit ? remainingSupply : oneTokenUnit
+        const oneTokenNetCost = await bonding.getBuyPrice(token.address, minimumTokenAmount)
+        const next = calculateMinimumBuyGrossWlc({
+          oneTokenNetCostWei: toBigInt(oneTokenNetCost),
+          tradingFeeBps: TORQR_TRADING_FEE_BPS,
+        })
+        if (!cancelled) setMinimumBuyWlc(next)
+      } catch {
+        if (!cancelled) setMinimumBuyWlc(0n)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [remainingSupply, resolvedToken.graduated, stack?.bondingCurveAddress, token.address])
 
   useEffect(() => {
     if (!stack || resolvedToken.graduated || mode !== "buy" || buyBudgetAfterFee <= 0n || remainingSupply <= 0n) {
@@ -330,6 +358,10 @@ export default function TorqrTradePanel({
     const bonding = new ethers.Contract(stack.bondingCurveAddress, TORQR_BONDING_CURVE_ABI, signer)
     const tokenContract = new ethers.Contract(token.address, TORQR_TOKEN_ABI, signer)
     if (mode === "buy") {
+      if (buyQuote <= 0n) {
+        setError(`Minimum buy right now is ${formatTorqrWlc(minimumBuyWlc)} WLC for about 1 ${resolvedToken.symbol}.`)
+        return
+      }
       await runTx("buy", () => bonding.buy(token.address, minBuyTokens, { value: parsedAmount }), "Submitting buy transaction...", "Buy confirmed.")
       return
     }
@@ -348,7 +380,7 @@ export default function TorqrTradePanel({
             <button onClick={() => setDirection("wlc-to-token")} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", background: direction === "wlc-to-token" ? "linear-gradient(135deg,#00e5a0,#00b880)" : "rgba(255,255,255,0.04)", color: direction === "wlc-to-token" ? "#08080e" : "rgba(255,255,255,0.55)", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14 }}>WLC to {resolvedToken.symbol}</button>
             <button onClick={() => setDirection("token-to-wlc")} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer", background: direction === "token-to-wlc" ? "linear-gradient(135deg,#00e5a0,#00b880)" : "rgba(255,255,255,0.04)", color: direction === "token-to-wlc" ? "#08080e" : "rgba(255,255,255,0.55)", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14 }}>{resolvedToken.symbol} to WLC</button>
           </div>
-          <input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={direction === "wlc-to-token" ? "0.0 WLC" : `0.0 ${resolvedToken.symbol}`} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 14, fontFamily: "'DM Sans',sans-serif", marginBottom: 12 }} />
+          <input value={amount} onChange={(event) => { setAmount(event.target.value); setError("") }} placeholder={direction === "wlc-to-token" ? "0.0 WLC" : `0.0 ${resolvedToken.symbol}`} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 14, fontFamily: "'DM Sans',sans-serif", marginBottom: 12 }} />
           {direction === "token-to-wlc" ? <div style={{ marginBottom: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Balance: {isConnected ? formatTorqrTokenAmount(balance) : "0"} {resolvedToken.symbol}</div> : null}
           <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)" }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Estimated output</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#00e5a0" }}>{direction === "wlc-to-token" ? `${formatTorqrTokenAmount(swapQuote)} ${resolvedToken.symbol}` : `${formatTorqrWlc(swapQuote)} WLC`}</span></div>
@@ -359,13 +391,14 @@ export default function TorqrTradePanel({
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-            <button onClick={() => setMode("buy")} style={{ padding: "14px 0", borderRadius: 10, border: "none", cursor: "pointer", background: mode === "buy" ? "linear-gradient(135deg,#00e5a0,#00b880)" : "rgba(255,255,255,0.04)", color: mode === "buy" ? "#08080e" : "rgba(255,255,255,0.55)", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Buy</button>
-            <button onClick={() => setMode("sell")} style={{ padding: "14px 0", borderRadius: 10, border: mode === "sell" ? "1px solid rgba(255,61,106,0.3)" : "1px solid rgba(255,255,255,0.08)", background: mode === "sell" ? "rgba(255,61,106,0.06)" : "rgba(255,255,255,0.03)", color: mode === "sell" ? "#ff4d6a" : "rgba(255,255,255,0.45)", cursor: "pointer", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Sell</button>
+            <button onClick={() => { setMode("buy"); setError("") }} style={{ padding: "14px 0", borderRadius: 10, border: "none", cursor: "pointer", background: mode === "buy" ? "linear-gradient(135deg,#00e5a0,#00b880)" : "rgba(255,255,255,0.04)", color: mode === "buy" ? "#08080e" : "rgba(255,255,255,0.55)", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Buy</button>
+            <button onClick={() => { setMode("sell"); setError("") }} style={{ padding: "14px 0", borderRadius: 10, border: mode === "sell" ? "1px solid rgba(255,61,106,0.3)" : "1px solid rgba(255,255,255,0.08)", background: mode === "sell" ? "rgba(255,61,106,0.06)" : "rgba(255,255,255,0.03)", color: mode === "sell" ? "#ff4d6a" : "rgba(255,255,255,0.45)", cursor: "pointer", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Sell</button>
           </div>
-          <input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={mode === "buy" ? "0.0 WLC" : `0.0 ${resolvedToken.symbol}`} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 14, fontFamily: "'DM Sans',sans-serif", marginBottom: 12 }} />
-          {mode === "buy" ? <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{QUICK_BUY_AMOUNTS.map((value) => <button key={value} onClick={() => setAmount(value)} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>{value}</button>)}</div> : <div style={{ marginBottom: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Balance: {isConnected ? formatTorqrTokenAmount(balance) : "0"} {resolvedToken.symbol}</div>}
+          <input value={amount} onChange={(event) => { setAmount(event.target.value); setError("") }} placeholder={mode === "buy" ? "0.0 WLC" : `0.0 ${resolvedToken.symbol}`} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 14, fontFamily: "'DM Sans',sans-serif", marginBottom: 12 }} />
+          {mode === "buy" ? <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{QUICK_BUY_AMOUNTS.map((value) => <button key={value} onClick={() => { setAmount(value); setError("") }} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>{value}</button>)}</div> : <div style={{ marginBottom: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Balance: {isConnected ? formatTorqrTokenAmount(balance) : "0"} {resolvedToken.symbol}</div>}
           <div style={{ display: "grid", gap: 10, marginBottom: 14 }}>
             {mode === "buy" ? <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)" }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Estimated output</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#00e5a0" }}>{quotePending ? "Estimating..." : `${formatTorqrTokenAmount(buyQuote)} ${resolvedToken.symbol}`}</span></div> : null}
+            {mode === "buy" && minimumBuyWlc > 0n ? <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: minimumBuyRequired ? "rgba(245,158,11,0.09)" : "rgba(255,255,255,0.03)", border: minimumBuyRequired ? "1px solid rgba(245,158,11,0.16)" : "1px solid transparent" }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Minimum buy now</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: minimumBuyRequired ? "#f6c466" : "#f0f0f5" }}>{formatTorqrWlc(minimumBuyWlc)} WLC</span></div> : null}
             {mode === "sell" ? <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)" }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Estimated WLC out</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#ff8fa0" }}>{formatTorqrWlc(sellQuote)} WLC</span></div> : null}
             {mode === "sell" ? <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)" }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Allowance</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: requiresApproval ? "#ff4d6a" : "#00e5a0" }}>{requiresApproval ? "Approval required" : "Ready to sell"}</span></div> : null}
           </div>
@@ -378,6 +411,7 @@ export default function TorqrTradePanel({
       </div>
 
       {status ? <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.16)", color: "#b6bcff", fontSize: 12 }}>{status}{txHash ? <div style={{ marginTop: 6 }}><a href={txUrl(txHash)} target="_blank" rel="noreferrer" style={{ color: "#d8dcff", textDecoration: "underline" }}>View transaction</a></div> : null}</div> : null}
+      {minimumBuyRequired ? <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.16)", color: "#f6c466", fontSize: 12 }}>This amount is too small to buy 1 full {resolvedToken.symbol}. Minimum buy right now is {formatTorqrWlc(minimumBuyWlc)} WLC.</div> : null}
       {error ? <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(255,77,106,0.08)", border: "1px solid rgba(255,77,106,0.16)", color: "#ff9aaa", fontSize: 12 }}>{error}</div> : null}
 
       <button type="button" onClick={handleAction} disabled={actionDisabled} style={{ width: "100%", padding: "14px 0", borderRadius: 10, border: "none", cursor: actionDisabled ? "not-allowed" : "pointer", opacity: actionDisabled ? 0.55 : 1, background: resolvedToken.graduated ? (requiresApproval ? "linear-gradient(135deg,#ffd15c,#ffb400)" : "linear-gradient(135deg,#00e5a0,#00b880)") : mode === "buy" ? "linear-gradient(135deg,#00e5a0,#00b880)" : requiresApproval ? "linear-gradient(135deg,#ffd15c,#ffb400)" : "linear-gradient(135deg,#ff667f,#ff4d6a)", color: "#08080e", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>{actionLabel}</button>

@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 
-import { getMainNavItems, getSecondaryNavItems } from "./navigation.js"
+import { getMainNavItems, getNavbarDesktopUtilityState, getSecondaryNavItems } from "./navigation.js"
 
 function t(key) {
   return key
@@ -23,4 +23,14 @@ test("getSecondaryNavItems keeps existing operational routes", () => {
     ["/submit", "nav_create"],
     ["/providers", "nav_providers"],
   ])
+})
+
+test("connected desktop navbar hides the compact search to prevent crowding", () => {
+  assert.deepEqual(getNavbarDesktopUtilityState({ connected: true }), {
+    showSearch: false,
+  })
+
+  assert.deepEqual(getNavbarDesktopUtilityState({ connected: false }), {
+    showSearch: true,
+  })
 })

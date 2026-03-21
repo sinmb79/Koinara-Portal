@@ -8,7 +8,7 @@ import { Button, StatusPill } from "./ui.jsx"
 import { shortAddress, SUPPORTED_CHAINS, WORLDLAND, BASE } from "../lib/chain.js"
 import { discoverInjectedWallets } from "../lib/wallet.js"
 import SearchBar from "./SearchBar.jsx"
-import { getMainNavItems, getSecondaryNavItems } from "../lib/navigation.js"
+import { getMainNavItems, getNavbarDesktopUtilityState, getSecondaryNavItems } from "../lib/navigation.js"
 
 function formatWalletError(error, t) {
   const message = String(error?.reason || error?.message || "").toLowerCase()
@@ -62,6 +62,7 @@ export default function Navbar() {
 
   const mainNavItems = getMainNavItems(t)
   const secondaryNavItems = getSecondaryNavItems(t)
+  const desktopUtilityState = getNavbarDesktopUtilityState({ connected: Boolean(address) })
 
   function showWalletError(error) {
     const message = formatWalletError(error, t)
@@ -179,25 +180,25 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary/10 bg-[#0f231d]/80 backdrop-blur-md">
-      <div className="mx-auto flex min-h-[76px] w-[min(1280px,calc(100vw-32px))] items-center justify-between gap-6 py-3">
-        <div className="flex min-w-0 items-center gap-6">
+      <div className="mx-auto flex min-h-[76px] w-[min(1440px,calc(100vw-32px))] items-center justify-between gap-4 py-3 2xl:w-[min(1520px,calc(100vw-48px))]">
+        <div className="flex min-w-0 items-center gap-4 xl:gap-5">
           <Link to="/" className="flex items-center gap-3 text-primary">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
               <img className="h-7 w-7 object-contain" src="/koin-logo-primary.png" alt="Koinara" />
             </div>
             <div className="min-w-0">
               <div className="truncate text-lg font-black tracking-tight text-slate-100">{t("brand_title")}</div>
-              <div className="truncate text-xs uppercase tracking-[0.22em] text-slate-500">{t("brand_subtitle")}</div>
+              <div className="hidden truncate text-xs uppercase tracking-[0.22em] text-slate-500 2xl:block">{t("brand_subtitle")}</div>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-6 lg:flex">
+          <nav className="hidden min-w-0 items-center gap-4 xl:flex 2xl:gap-5">
             {mainNavItems.map(([to, label]) => (
               <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
-                  `border-b-2 py-6 text-sm font-semibold transition-colors ${isActive ? "border-primary text-primary" : "border-transparent text-slate-400 hover:text-primary"}`
+                  `whitespace-nowrap border-b-2 py-6 text-sm font-semibold transition-colors ${isActive ? "border-primary text-primary" : "border-transparent text-slate-400 hover:text-primary"}`
                 }
               >
                 {label}
@@ -206,10 +207,12 @@ export default function Navbar() {
           </nav>
         </div>
 
-        <div className="hidden min-w-0 flex-1 items-center justify-end gap-4 xl:flex">
-          <div className="hidden w-full max-w-[220px] 2xl:block">
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 xl:flex 2xl:gap-3">
+          {desktopUtilityState.showSearch ? (
+          <div className="hidden w-full max-w-[180px] 2xl:block">
             <SearchBar placeholder={t("search_agents_placeholder")} compact />
           </div>
+          ) : null}
 
           <div className="inline-flex items-center rounded-full border border-primary/10 bg-white/5 p-1">
             {["en", "ko"].map((value) => (
@@ -224,12 +227,12 @@ export default function Navbar() {
           </div>
 
           {address ? (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {/* Network selector dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setNetworkPickerOpen((v) => !v)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
+                  className={`inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
                     isCorrectChain
                       ? "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10"
                       : "border-red-500/30 bg-red-500/10 text-red-400"
@@ -259,7 +262,7 @@ export default function Navbar() {
               </div>
               <button
                 onClick={async () => { disconnect(); await handleConnect() }}
-                className="inline-flex h-11 items-center rounded-xl border border-primary/10 bg-white/5 px-4 font-mono text-xs text-slate-200 hover:border-primary/30 hover:text-primary transition cursor-pointer"
+                className="inline-flex h-10 min-w-0 items-center rounded-xl border border-primary/10 bg-white/5 px-3 font-mono text-xs text-slate-200 hover:border-primary/30 hover:text-primary transition cursor-pointer"
                 title="Click to switch wallet"
               >
                 {shortAddress(address)}

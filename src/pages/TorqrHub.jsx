@@ -3,8 +3,10 @@ import { createPortal } from "react-dom"
 import { ethers } from "ethers"
 import { toast } from "react-hot-toast"
 import { Link, useLocation, useNavigate } from "react-router-dom"
+import TorqrActivityPanel from "../components/Torqr/TorqrActivityPanel.jsx"
+import TorqrTokenAvatar from "../components/Torqr/TorqrTokenAvatar.jsx"
 import TorqrTradePanel from "../components/Torqr/TorqrTradePanel.jsx"
-import { TORQR_HUB_COPY } from "../lib/torqrHubContent.js"
+import { TORQR_GUIDE_SECTIONS, TORQR_HUB_COPY } from "../lib/torqrHubContent.js"
 import useStore from "../lib/store.js"
 import { WORLDLAND } from "../lib/chain.js"
 import { discoverInjectedWallets } from "../lib/wallet.js"
@@ -238,7 +240,7 @@ function TokenRow({ token, index, onOpen }) {
   return (
     <div onClick={() => onOpen(token)} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ display: "grid", gridTemplateColumns: "32px 44px 1fr auto auto auto", alignItems: "center", gap: 14, padding: "14px 18px", cursor: "pointer", background: hovered ? "rgba(255,255,255,0.03)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.04)", transition: "background 0.15s", animation: `fadeSlideIn 0.3s ease ${index * 0.03}s both` }}>
       <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.2)", textAlign: "center" }}>{token.graduated ? "AMM" : `#${index + 1}`}</span>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.05)", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, border: "1px solid rgba(255,255,255,0.06)", fontFamily: "'JetBrains Mono',monospace" }}>{token.badge}</div>
+      <TorqrTokenAvatar token={token} size={40} radius={10} fontSize={12} />
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f5" }}>{token.name}</span>
@@ -280,7 +282,48 @@ function TermsModal({ onClose }) {
   )
 }
 
-function CreateModal({ address, chainId, isConnecting, isDeploying, form, onChange, onClose, onPrimaryAction }) {
+function GuideModal({ onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "grid", placeItems: "center", padding: 24, animation: "modalBg 0.2s ease" }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "100%", maxWidth: 680, background: "#0e0e1a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, overflow: "hidden", animation: "slideUp 0.3s ease", maxHeight: "82vh", overflowY: "auto" }}>
+        <div style={{ padding: "28px 32px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#0e0e1a", zIndex: 1 }}>
+          <div>
+            <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22 }}>{TORQR_HUB_COPY.guideTitle}</h3>
+            <p style={{ marginTop: 4, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
+              Fees, bonding curve rules, and AMM graduation explained in plain language.
+            </p>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16, display: "grid", placeItems: "center" }}>x</button>
+        </div>
+        <div style={{ padding: "24px 32px 28px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 20 }}>
+            {[
+              ["Creation Fee", "1 WLC"],
+              ["Trading Fee", "1%"],
+              ["Curve / Creator", "80% / 20% vested"],
+              ["Graduation", "10 WLC reserve"],
+            ].map(([label, value]) => (
+              <div key={label} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, color: "#00e5ff" }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gap: 12 }}>
+            {TORQR_GUIDE_SECTIONS.map((section) => (
+              <div key={section.title} style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: "#f0f0f5", marginBottom: 8 }}>{section.title}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.8 }}>{section.body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CreateModal({ address, chainId, isConnecting, isDeploying, form, onChange, onClose, onPrimaryAction, onOpenGuide }) {
   const ready = Boolean(form.name && form.symbol)
   const primaryButton = getTorqrCreateButtonState({
     address,
@@ -328,6 +371,17 @@ function CreateModal({ address, chainId, isConnecting, isDeploying, form, onChan
                 <span style={{ color: color || "rgba(255,255,255,0.6)" }}>{value}</span>
               </div>
             ))}
+          </div>
+          <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(0,229,255,0.05)", border: "1px solid rgba(0,229,255,0.12)", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "#7eeeff", textTransform: "uppercase", letterSpacing: "0.08em" }}>Launch Guide</span>
+              <button onClick={onOpenGuide} type="button" style={{ padding: "6px 10px", borderRadius: 999, border: "1px solid rgba(0,229,255,0.18)", background: "rgba(255,255,255,0.03)", color: "#baf7ff", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 10 }}>
+                Open full guide
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>
+              1 WLC to launch, 1% trading fee on curve trades, and graduation happens when the reserve reaches 10 WLC. The exact minimum buy amount changes live with the bonding curve.
+            </div>
           </div>
           <button
             onClick={primaryButton.disabled ? undefined : onPrimaryAction}
@@ -409,10 +463,10 @@ function DetailModal({ token, onClose, address, chainId, signer, onConnect, onSw
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "grid", placeItems: "center", padding: 24, animation: "modalBg 0.2s ease" }}>
-      <div onClick={(event) => event.stopPropagation()} style={{ width: "100%", maxWidth: 520, background: "#0e0e1a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, overflow: "hidden", animation: "slideUp 0.3s ease" }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "100%", maxWidth: 640, maxHeight: "88vh", overflowY: "auto", background: "#0e0e1a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 18, animation: "slideUp 0.3s ease" }}>
         <div style={{ padding: "24px 28px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
           <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.05)", display: "grid", placeItems: "center", fontSize: 16, fontWeight: 700, border: "1px solid rgba(255,255,255,0.06)", fontFamily: "'JetBrains Mono',monospace" }}>{token.badge}</div>
+            <TorqrTokenAvatar token={token} size={52} radius={14} fontSize={16} />
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 20 }}>{token.name}</span>
@@ -451,6 +505,7 @@ function DetailModal({ token, onClose, address, chainId, signer, onConnect, onSw
             onSwitchWorldland={onSwitchWorldland}
             onRefreshMarket={onRefreshMarket}
           />
+          <TorqrActivityPanel token={token} />
           <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.15)" }}>creator: {token.creator} | source: {token.source === "api" ? "indexer" : "onchain fallback"}</div>
         </div>
       </div>
@@ -478,6 +533,7 @@ export default function TorqrHub() {
   const [walletOptions, setWalletOptions] = useState([])
   const [isDeploying, setIsDeploying] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
   const [form, setForm] = useState({ name: "", symbol: "", desc: "", img: "" })
   const [market, setMarket] = useState(() => ({
     tokens: [],
@@ -816,6 +872,7 @@ export default function TorqrHub() {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 <Link to="/ecosystem" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.52)", textDecoration: "none" }}>Koinara Protocol Home</Link>
+                <button onClick={() => setShowGuide(true)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(0,229,255,0.12)", background: "rgba(0,229,255,0.06)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#9beeff", cursor: "pointer" }}>{TORQR_HUB_COPY.guideButton}</button>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "rgba(255,255,255,0.2)", pointerEvents: "none" }}>?</span>
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tokens..." style={{ width: 200, padding: "8px 12px 8px 34px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 12, fontFamily: "'DM Sans',sans-serif" }} />
@@ -908,8 +965,10 @@ export default function TorqrHub() {
               onChange={updateForm}
               onClose={closeModal}
               onPrimaryAction={handleCreatePrimaryAction}
+              onOpenGuide={() => setShowGuide(true)}
             />
           ) : null}
+          {showGuide ? <GuideModal onClose={() => setShowGuide(false)} /> : null}
           {selectedToken ? <DetailModal token={selectedToken} onClose={closeModal} address={address} chainId={chainId} signer={signer} onConnect={handleConnect} onSwitchWorldland={() => switchChain(WORLDLAND)} onRefreshMarket={() => setMarketReloadKey((value) => value + 1)} /> : null}
           {showTerms ? <TermsModal onClose={() => setShowTerms(false)} /> : null}
           {walletPickerOpen ? (
@@ -924,6 +983,7 @@ export default function TorqrHub() {
             <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.15)" }}>torqr | Token launchpad on WorldLand | Open source (MIT)</span>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                <button onClick={() => setShowGuide(true)} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", cursor: "pointer", background: "transparent", border: "none", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.08)", textUnderlineOffset: 3 }}>{TORQR_HUB_COPY.guideButton}</button>
                 <button onClick={() => setShowTerms(true)} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", cursor: "pointer", background: "transparent", border: "none", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.08)", textUnderlineOffset: 3 }}>Terms & Disclaimer</button>
                 <button onClick={() => setGate("gate")} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", cursor: "pointer", background: "transparent", border: "none", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.08)", textUnderlineOffset: 3 }}>Restricted Jurisdictions</button>
                 <a href="https://github.com/sinmb79/torqr" target="_blank" rel="noreferrer" style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.25)", textDecoration: "none" }}>GitHub</a>

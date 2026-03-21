@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  calculateMinimumBuyGrossWlc,
   estimateBuyTokensForWlc,
   getTorqrSwapPrimaryActionLabel,
   getTorqrTradePrimaryActionLabel,
@@ -21,6 +22,16 @@ test("estimateBuyTokensForWlc returns the highest token amount within budget", a
   })
 
   assert.equal(result, 3n * 10n ** 18n)
+})
+
+test("calculateMinimumBuyGrossWlc grosses one-token price up for trading fees", () => {
+  assert.equal(
+    calculateMinimumBuyGrossWlc({
+      oneTokenNetCostWei: 2333333333333333433n,
+      tradingFeeBps: 100,
+    }),
+    2356902356902357004n,
+  )
 })
 
 test("getTorqrTradePrimaryActionLabel reflects chain, approval, and busy states", () => {
@@ -107,4 +118,6 @@ test("Torqr integration ABIs expose the functions needed for live trading", () =
   assert.ok(TORQR_POOL_ABI.some((item) => item.includes("swap(bool wlcIn")))
   assert.ok(TORQR_TOKEN_ABI.some((item) => item.includes("balanceOf(address owner)")))
   assert.ok(TORQR_TOKEN_ABI.some((item) => item.includes("approve(address spender")))
+  assert.ok(TORQR_TOKEN_ABI.some((item) => item.includes("description()")))
+  assert.ok(TORQR_TOKEN_ABI.some((item) => item.includes("imageURI()")))
 })
