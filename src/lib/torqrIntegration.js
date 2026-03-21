@@ -49,16 +49,33 @@ export const TORQR_FACTORY_ABI = [
   "function createToken(string name,string symbol,string description,string imageURI) payable returns (address)",
   "function getAllTokens() view returns (address[])",
   "function getTokenInfo(address token) view returns (tuple(address tokenAddress,address creator,string name,string symbol,uint256 createdAt,bool graduated))",
+  "function getPool(address token) view returns (address)",
   "event TokenCreated(address indexed tokenAddress,address indexed creator,string name,string symbol,uint256 createdAt)",
 ]
 
 export const TORQR_BONDING_CURVE_ABI = [
   "function getCurveState(address token) view returns (address tokenAddress,address creator,uint256 totalSupply,uint256 soldSupply,uint256 reserveWLC,bool graduated,bool exists)",
   "function getProgress(address token) view returns (uint256)",
+  "function buy(address token,uint256 minTokensOut) payable returns (uint256)",
+  "function sell(address token,uint256 amount,uint256 minWLCOut) returns (uint256)",
+  "function getBuyPrice(address token,uint256 amount) view returns (uint256)",
+  "function getSellPrice(address token,uint256 amount) view returns (uint256)",
 ]
 
 export const TORQR_BRIDGE_ABI = [
   "function getTokenForAgent(address agent) view returns (address)",
   "function launchForSelf(string name,string symbol,string description,string imageURI) payable returns (address)",
   "event AgentTokenLaunched(address indexed agent,address indexed token,string name,string symbol)",
+]
+
+export const TORQR_POOL_ABI = [
+  "function getAmountOut(bool wlcIn,uint256 amountIn) view returns (uint256)",
+  "function getReserves() view returns (uint256,uint256)",
+  "function swap(bool wlcIn,uint256 amountIn,uint256 minAmountOut) payable returns (uint256)",
+]
+
+export const TORQR_TOKEN_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function allowance(address owner,address spender) view returns (uint256)",
+  "function approve(address spender,uint256 amount) returns (bool)",
 ]

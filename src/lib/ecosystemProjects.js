@@ -2,6 +2,19 @@ import { matchPath } from "react-router-dom"
 
 export const PROJECTS = [
   {
+    id: "ecosystem",
+    title: "Koinara Ecosystem Home",
+    short: "KH",
+    accent: "from-cyan-400/20 to-cyan-400/5 text-cyan-200",
+    railLabel: "Home",
+    summary:
+      "The top-level ecosystem landing page that ties OpenClaw, Torqr, and the rest of the Koinara product stack together.",
+    href: "/ecosystem",
+    linkLabel: "Open ecosystem",
+    internal: true,
+    stage: "Overview",
+  },
+  {
     id: "openclaw",
     title: "OpenClaw Agent Marketplace",
     short: "OC",
@@ -97,7 +110,7 @@ const OPENCLAW_PATTERNS = [
 ]
 
 export function getActiveProjectId(pathname) {
-  if (pathname === "/ecosystem" || pathname === "/tokenomics") return null
+  if (pathname === "/ecosystem" || pathname === "/tokenomics") return "ecosystem"
   if (pathname === "/torqr") return "torqr"
 
   if (

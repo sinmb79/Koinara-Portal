@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { ethers } from "ethers"
 import { toast } from "react-hot-toast"
 import { Link, useLocation, useNavigate } from "react-router-dom"
+import TorqrTradePanel from "../components/Torqr/TorqrTradePanel.jsx"
 import { TORQR_HUB_COPY } from "../lib/torqrHubContent.js"
 import useStore from "../lib/store.js"
 import { WORLDLAND } from "../lib/chain.js"
@@ -403,7 +404,7 @@ function WalletPickerModal({ wallets, onClose, onSelect }) {
   )
 }
 
-function DetailModal({ token, onClose }) {
+function DetailModal({ token, onClose, address, chainId, signer, onConnect, onSwitchWorldland, onRefreshMarket }) {
   const stats = formatTorqrTokenDetailStats(token)
 
   return (
@@ -439,8 +440,17 @@ function DetailModal({ token, onClose }) {
         </div>
         <div style={{ padding: "0 28px 24px" }}>
           <div style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.32)", lineHeight: 1.7 }}>
-            {token.description || "Live token metadata synced from Torqr. Trade execution remains available in the main Torqr trading app while Koinara mirrors the market list in real time."}
+            {token.description || "Live token metadata synced from Torqr. Trading is now available directly inside the Koinara Torqr hub."}
           </div>
+          <TorqrTradePanel
+            token={token}
+            address={address}
+            chainId={chainId}
+            signer={signer}
+            onConnect={onConnect}
+            onSwitchWorldland={onSwitchWorldland}
+            onRefreshMarket={onRefreshMarket}
+          />
           <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.15)" }}>creator: {token.creator} | source: {token.source === "api" ? "indexer" : "onchain fallback"}</div>
         </div>
       </div>
@@ -805,7 +815,7 @@ export default function TorqrHub() {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <Link to="/ecosystem" style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>Back to Koinara</Link>
+                <Link to="/ecosystem" style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.52)", textDecoration: "none" }}>Koinara Protocol Home</Link>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "rgba(255,255,255,0.2)", pointerEvents: "none" }}>?</span>
                   <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tokens..." style={{ width: 200, padding: "8px 12px 8px 34px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.03)", color: "#f0f0f5", fontSize: 12, fontFamily: "'DM Sans',sans-serif" }} />
@@ -900,7 +910,7 @@ export default function TorqrHub() {
               onPrimaryAction={handleCreatePrimaryAction}
             />
           ) : null}
-          {selectedToken ? <DetailModal token={selectedToken} onClose={closeModal} /> : null}
+          {selectedToken ? <DetailModal token={selectedToken} onClose={closeModal} address={address} chainId={chainId} signer={signer} onConnect={handleConnect} onSwitchWorldland={() => switchChain(WORLDLAND)} onRefreshMarket={() => setMarketReloadKey((value) => value + 1)} /> : null}
           {showTerms ? <TermsModal onClose={() => setShowTerms(false)} /> : null}
           {walletPickerOpen ? (
             <WalletPickerModal
