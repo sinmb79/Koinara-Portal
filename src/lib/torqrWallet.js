@@ -9,7 +9,7 @@ export function formatTorqrWalletLabel({ address }) {
   return shortAddress(address, 6, 4)
 }
 
-export function getTorqrCreateButtonState({ address, chainId, isConnecting, isReady }) {
+export function getTorqrCreateButtonState({ address, chainId, isConnecting, isDeploying, isReady }) {
   if (isConnecting) {
     return {
       intent: "connect",
@@ -39,6 +39,14 @@ export function getTorqrCreateButtonState({ address, chainId, isConnecting, isRe
       intent: "switch",
       disabled: false,
       label: "Switch to Worldland",
+    }
+  }
+
+  if (isDeploying) {
+    return {
+      intent: "deploy",
+      disabled: true,
+      label: "Deploying...",
     }
   }
 
@@ -78,5 +86,22 @@ export function getTorqrWalletConnectAction({ wallets, userAgent, href }) {
     type: "connect",
     walletId: wallets[0]?.id ?? null,
     href: null,
+  }
+}
+
+export function getTorqrDeployConfig({
+  factoryAddress,
+  bridgeAddress,
+  name,
+  symbol,
+  description,
+  imageURI,
+  valueWei = "1000000000000000000",
+}) {
+  return {
+    address: bridgeAddress || factoryAddress,
+    functionName: bridgeAddress ? "launchForSelf" : "createToken",
+    valueWei,
+    args: [name, symbol, description, imageURI],
   }
 }

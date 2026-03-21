@@ -3,6 +3,7 @@ import test from "node:test"
 
 import {
   formatTorqrWalletLabel,
+  getTorqrDeployConfig,
   getTorqrCreateButtonState,
   getTorqrWalletConnectAction,
 } from "./torqrWallet.js"
@@ -55,6 +56,23 @@ test("create modal preserves deploy intent after wallet connection on Worldland"
   )
 })
 
+test("create modal shows deploying state while the transaction is in flight", () => {
+  assert.deepEqual(
+    getTorqrCreateButtonState({
+      address: "0x1234567890abcdef1234567890abcdef12345678",
+      chainId: 103,
+      isConnecting: false,
+      isDeploying: true,
+      isReady: true,
+    }),
+    {
+      intent: "deploy",
+      disabled: true,
+      label: "Deploying...",
+    },
+  )
+})
+
 test("wallet connect action opens a picker when multiple injected wallets are present", () => {
   const wallets = [{ id: "metamask" }, { id: "rabby" }]
 
@@ -94,5 +112,23 @@ test("wallet label shortens the connected address for the Torqr top bar", () => 
       walletName: "MetaMask",
     }),
     "0x1234...5678",
+  )
+})
+
+test("deploy config uses the Torqr factory with the fixed 1 WLC creation fee", () => {
+  assert.deepEqual(
+    getTorqrDeployConfig({
+      factoryAddress: "0x1E8d07B68b0447c27B8976767d91974Eee5B5103",
+      name: "WorldCat",
+      symbol: "WCAT",
+      description: "Token launch",
+      imageURI: "https://example.com/cat.png",
+    }),
+    {
+      address: "0x1E8d07B68b0447c27B8976767d91974Eee5B5103",
+      functionName: "createToken",
+      valueWei: "1000000000000000000",
+      args: ["WorldCat", "WCAT", "Token launch", "https://example.com/cat.png"],
+    },
   )
 })

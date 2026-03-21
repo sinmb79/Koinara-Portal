@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
+import { ethers } from "ethers"
 import { toast } from "react-hot-toast"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { TORQR_HUB_COPY } from "../lib/torqrHubContent.js"
@@ -8,9 +9,18 @@ import { WORLDLAND } from "../lib/chain.js"
 import { discoverInjectedWallets } from "../lib/wallet.js"
 import {
   formatTorqrWalletLabel,
+  getTorqrDeployConfig,
   getTorqrCreateButtonState,
   getTorqrWalletConnectAction,
 } from "../lib/torqrWallet.js"
+import {
+  TORQR_APP_URL,
+  TORQR_BRIDGE_ABI,
+  TORQR_BRIDGE_ADDRESS,
+  TORQR_CREATION_FEE_WEI,
+  TORQR_FACTORY_ABI,
+  TORQR_FACTORY_ADDRESS,
+} from "../lib/torqrIntegration.js"
 
 const HOME_ROUTE = "/torqr"
 
@@ -273,12 +283,13 @@ function TermsModal({ onClose }) {
   )
 }
 
-function CreateModal({ address, chainId, isConnecting, form, onChange, onClose, onPrimaryAction }) {
+function CreateModal({ address, chainId, isConnecting, isDeploying, form, onChange, onClose, onPrimaryAction }) {
   const ready = Boolean(form.name && form.symbol)
   const primaryButton = getTorqrCreateButtonState({
     address,
     chainId,
     isConnecting,
+    isDeploying,
     isReady: ready,
   })
 
@@ -458,6 +469,7 @@ export default function TorqrHub() {
     isConnecting,
     connect,
     disconnect,
+    signer,
     switchChain,
   } = useStore()
   const [gate, setGate] = useState(loadGateState)
@@ -466,6 +478,7 @@ export default function TorqrHub() {
   const [search, setSearch] = useState("")
   const [walletPickerOpen, setWalletPickerOpen] = useState(false)
   const [walletOptions, setWalletOptions] = useState([])
+  const [isDeploying, setIsDeploying] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [form, setForm] = useState({ name: "", symbol: "", desc: "", img: "" })
 
@@ -591,6 +604,7 @@ export default function TorqrHub() {
       address,
       chainId,
       isConnecting,
+      isDeploying,
       isReady: Boolean(form.name && form.symbol),
     })
 
@@ -609,7 +623,63 @@ export default function TorqrHub() {
     }
 
     if (primaryButton.intent === "deploy") {
-      toast("Live token deployment wiring is next.", { id: "torqr-deploy-pending" })
+      if (!signer) {
+        toast.error("Wallet signer is not available.", { id: "torqr-deploy-error" })
+        return
+      }
+
+      const deployConfig = getTorqrDeployConfig({
+        factoryAddress: TORQR_FACTORY_ADDRESS,
+        bridgeAddress: TORQR_BRIDGE_ADDRESS,
+        name: form.name.trim(),
+        symbol: form.symbol.trim().toUpperCase(),
+        description: form.desc.trim(),
+        imageURI: form.img.trim(),
+        valueWei: TORQR_CREATION_FEE_WEI,
+      })
+
+      try {
+        setIsDeploying(true)
+        const abi = deployConfig.functionName === "launchForSelf" ? TORQR_BRIDGE_ABI : TORQR_FACTORY_ABI
+        const contract = new ethers.Contract(deployConfig.address, abi, signer)
+        const tx = await contract[deployConfig.functionName](...deployConfig.args, {
+          value: BigInt(deployConfig.valueWei),
+        })
+        const receipt = await tx.wait()
+
+        let tokenAddress = null
+        const iface = new ethers.Interface(abi)
+        for (const log of receipt.logs) {
+          try {
+            const parsed = iface.parseLog(log)
+            if (parsed?.name === "TokenCreated") {
+              tokenAddress = parsed.args.tokenAddress
+              break
+            }
+            if (parsed?.name === "AgentTokenLaunched") {
+              tokenAddress = parsed.args.token
+              break
+            }
+          } catch {
+            // Ignore unrelated logs.
+          }
+        }
+
+        toast.success(tokenAddress ? `Token deployed: ${tokenAddress}` : "Token deployed successfully.", {
+          id: "torqr-deploy-success",
+        })
+
+        if (TORQR_APP_URL && tokenAddress) {
+          window.open(`${TORQR_APP_URL}/token/${tokenAddress}`, "_blank", "noopener,noreferrer")
+        }
+
+        closeModal()
+        setForm({ name: "", symbol: "", desc: "", img: "" })
+      } catch (error) {
+        toast.error(formatTorqrWalletError(error), { id: "torqr-deploy-error" })
+      } finally {
+        setIsDeploying(false)
+      }
     }
   }
 
@@ -739,6 +809,7 @@ export default function TorqrHub() {
               address={address}
               chainId={chainId}
               isConnecting={isConnecting}
+              isDeploying={isDeploying}
               form={form}
               onChange={updateForm}
               onClose={closeModal}
