@@ -146,6 +146,10 @@ function numericValue(value) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function normalizeDuplicateKey(value) {
+  return String(value || "").trim().toLowerCase()
+}
+
 export function applyTorqrTokenFilters(tokens, { tab = "trending", search = "" } = {}) {
   const query = String(search || "").trim().toLowerCase()
   let list = [...tokens]
@@ -197,6 +201,27 @@ export function buildTorqrStatsSnapshot({ stats = null, tokens = [] } = {}) {
     volume24h: null,
     activeTraders24h: null,
   }
+}
+
+export function findTorqrDuplicateTokenInList(tokens, { name = "", symbol = "" } = {}) {
+  const normalizedName = normalizeDuplicateKey(name)
+  const normalizedSymbol = normalizeDuplicateKey(symbol)
+
+  if (normalizedName) {
+    const byName = tokens.find((token) => normalizeDuplicateKey(token.name) === normalizedName)
+    if (byName) {
+      return { field: "name", token: byName }
+    }
+  }
+
+  if (normalizedSymbol) {
+    const bySymbol = tokens.find((token) => normalizeDuplicateKey(token.symbol) === normalizedSymbol)
+    if (bySymbol) {
+      return { field: "symbol", token: bySymbol }
+    }
+  }
+
+  return null
 }
 
 function buildUrl(baseUrl, path, params = {}) {
@@ -279,6 +304,30 @@ async function loadTorqrTokensFromChain() {
   )
 
   return records.filter(Boolean).sort((left, right) => right.createdAt - left.createdAt)
+}
+
+async function loadAllTorqrTokens({ fetchImpl } = {}) {
+  const baseUrl = resolveTorqrApiBaseUrl()
+
+  if (baseUrl) {
+    try {
+      const result = await fetchJson(
+        baseUrl,
+        "/api/tokens",
+        {
+          sort: "newest",
+          limit: 500,
+          offset: 0,
+        },
+        { fetchImpl },
+      )
+      return (result?.tokens || []).map((token) => normalizeTorqrListToken({ ...token, source: "api" }))
+    } catch {
+      // Fall back to on-chain reads below.
+    }
+  }
+
+  return loadTorqrTokensFromChain()
 }
 
 async function loadTorqrTickerFromChain(limit = DEFAULT_TICKER_LIMIT) {
@@ -412,6 +461,11 @@ export async function loadTorqrTokenDetail(address, { fetchImpl } = {}) {
   } catch {
     return null
   }
+}
+
+export async function findTorqrDuplicateToken({ name = "", symbol = "", fetchImpl } = {}) {
+  const tokens = await loadAllTorqrTokens({ fetchImpl })
+  return findTorqrDuplicateTokenInList(tokens, { name, symbol })
 }
 
 export function formatTorqrStatValue(label, stats) {

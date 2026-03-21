@@ -22,6 +22,7 @@ import {
 } from "../lib/torqrIntegration.js"
 import {
   buildTorqrStatsSnapshot,
+  findTorqrDuplicateToken,
   formatTorqrStatValue,
   formatTorqrTokenDetailStats,
   loadTorqrMarketSnapshot,
@@ -684,6 +685,20 @@ export default function TorqrHub() {
     if (primaryButton.intent === "deploy") {
       if (!signer) {
         toast.error("Wallet signer is not available.", { id: "torqr-deploy-error" })
+        return
+      }
+
+      const duplicate = await findTorqrDuplicateToken({
+        name: form.name,
+        symbol: form.symbol,
+      })
+      if (duplicate) {
+        toast.error(
+          duplicate.field === "name"
+            ? `Token name already exists: ${duplicate.token.name}`
+            : `Token symbol already exists: ${duplicate.token.symbol}`,
+          { id: "torqr-duplicate-token-error" },
+        )
         return
       }
 

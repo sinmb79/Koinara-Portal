@@ -26,7 +26,7 @@ export const TORQR_CREATION_FEE_WEI = ethers.parseEther("1").toString()
 export const TORQR_FACTORY_ABI = [
   "function createToken(string name,string symbol,string description,string imageURI) payable returns (address)",
   "function getAllTokens() view returns (address[])",
-  "function getTokenInfo(address token) view returns (address tokenAddress,address creator,string name,string symbol,uint256 createdAt,bool graduated)",
+  "function getTokenInfo(address token) view returns (tuple(address tokenAddress,address creator,string name,string symbol,uint256 createdAt,bool graduated))",
   "event TokenCreated(address indexed tokenAddress,address indexed creator,string name,string symbol,uint256 createdAt)",
 ]
 

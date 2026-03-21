@@ -1,10 +1,12 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { ethers } from "ethers"
+import { TORQR_FACTORY_ABI } from "./torqrIntegration.js"
 
 import {
   applyTorqrTokenFilters,
   buildTorqrStatsSnapshot,
+  findTorqrDuplicateTokenInList,
   getTorqrApiQuery,
   normalizeTorqrListToken,
   resolveTorqrApiBaseUrl,
@@ -123,4 +125,37 @@ test("buildTorqrStatsSnapshot derives totals when indexer stats are unavailable"
     volume24h: null,
     activeTraders24h: null,
   })
+})
+
+test("factory ABI uses tuple return type for getTokenInfo struct decoding", () => {
+  const fragment = TORQR_FACTORY_ABI.find((item) => item.includes("getTokenInfo"))
+  assert.ok(fragment)
+  assert.match(fragment, /tuple\(/)
+})
+
+test("findTorqrDuplicateTokenInList detects duplicate names and symbols case-insensitively", () => {
+  const tokens = [
+    normalizeTorqrListToken({
+      address: SAMPLE_ADDRESS,
+      name: "22b",
+      symbol: "22B",
+      creator: SAMPLE_CREATOR,
+      createdAt: 1710000000,
+      graduated: false,
+      progress: 0,
+      mcap: "1",
+      volume24h: "0",
+    }),
+  ]
+
+  assert.deepEqual(
+    findTorqrDuplicateTokenInList(tokens, {
+      name: " 22B ",
+      symbol: "22b",
+    }),
+    {
+      field: "name",
+      token: tokens[0],
+    },
+  )
 })
