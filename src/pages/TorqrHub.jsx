@@ -14,15 +14,27 @@ import {
   getTorqrWalletConnectAction,
 } from "../lib/torqrWallet.js"
 import {
-  TORQR_APP_URL,
   TORQR_BRIDGE_ABI,
   TORQR_BRIDGE_ADDRESS,
   TORQR_CREATION_FEE_WEI,
   TORQR_FACTORY_ABI,
   TORQR_FACTORY_ADDRESS,
 } from "../lib/torqrIntegration.js"
+import {
+  buildTorqrStatsSnapshot,
+  formatTorqrStatValue,
+  formatTorqrTokenDetailStats,
+  loadTorqrMarketSnapshot,
+  loadTorqrTokenDetail,
+} from "../lib/torqrMarket.js"
 
 const HOME_ROUTE = "/torqr"
+const STAT_DEFS = [
+  ["Total Tokens", "TK"],
+  ["24h Volume", "VOL"],
+  ["Graduated", "AMM"],
+  ["Active Traders", "USR"],
+]
 
 const RESTRICTED = [
   { code: "KR", name: "South Korea", law: "FSC guidance and local virtual asset rules" },
@@ -38,31 +50,6 @@ const RESTRICTED = [
   { code: "IR", name: "Iran", law: "OFAC sanctions" },
   { code: "CU", name: "Cuba", law: "OFAC sanctions" },
   { code: "SY", name: "Syria", law: "OFAC sanctions" },
-]
-
-const TOKENS = [
-  { id: 1, name: "WorldCat", symbol: "WCAT", creator: "0x7a3f...e21b", mcap: 8.7, volume24h: 3.2, progress: 87, holders: 142, txCount: 891, createdAgo: "2h", badge: "WC", change: 23.4, graduated: false },
-  { id: 2, name: "Seoul Punk", symbol: "SPNK", creator: "0x3b1c...f90a", mcap: 7.1, volume24h: 2.8, progress: 71, holders: 98, txCount: 634, createdAgo: "4h", badge: "SP", change: 15.7, graduated: false },
-  { id: 3, name: "KimchiDAO", symbol: "KCHI", creator: "0x9e2d...a43c", mcap: 11.2, volume24h: 5.1, progress: 100, holders: 267, txCount: 1843, createdAgo: "1d", badge: "KD", change: -2.1, graduated: true },
-  { id: 4, name: "BullRun AI", symbol: "BRAI", creator: "0x1f8e...b72d", mcap: 6.3, volume24h: 4.7, progress: 63, holders: 201, txCount: 1290, createdAgo: "6h", badge: "BA", change: 45.2, graduated: false },
-  { id: 5, name: "NeonDrift", symbol: "NEON", creator: "0x5c0a...d19f", mcap: 5.8, volume24h: 1.9, progress: 58, holders: 77, txCount: 412, createdAgo: "8h", badge: "ND", change: 8.3, graduated: false },
-  { id: 6, name: "Dokdo Whale", symbol: "DKDO", creator: "0x2e7b...c84a", mcap: 9.4, volume24h: 3.8, progress: 94, holders: 189, txCount: 1102, createdAgo: "12h", badge: "DW", change: 31.6, graduated: false },
-  { id: 7, name: "GangnamStyle", symbol: "GNMS", creator: "0x8f3d...e56b", mcap: 4.2, volume24h: 1.1, progress: 42, holders: 54, txCount: 287, createdAgo: "30m", badge: "GS", change: 67.8, graduated: false },
-  { id: 8, name: "HanRiver", symbol: "HRVR", creator: "0x4a6c...f23e", mcap: 10.8, volume24h: 4.3, progress: 100, holders: 312, txCount: 2104, createdAgo: "2d", badge: "HR", change: -5.3, graduated: true },
-  { id: 9, name: "MetaMonkey", symbol: "MMKY", creator: "0x6d1f...a98c", mcap: 3.1, volume24h: 2.4, progress: 31, holders: 41, txCount: 198, createdAgo: "15m", badge: "MM", change: 112.5, graduated: false },
-  { id: 10, name: "CryptoRamen", symbol: "RAMN", creator: "0xb2e5...d71a", mcap: 5.5, volume24h: 1.6, progress: 55, holders: 83, txCount: 501, createdAgo: "10h", badge: "CR", change: 4.2, graduated: false },
-  { id: 11, name: "SojuToken", symbol: "SOJU", creator: "0xc7a9...e34b", mcap: 7.8, volume24h: 3.5, progress: 78, holders: 156, txCount: 923, createdAgo: "18h", badge: "SJ", change: 19.1, graduated: false },
-  { id: 12, name: "ZeroGravity", symbol: "0GRV", creator: "0xd4f2...b89c", mcap: 2.3, volume24h: 0.8, progress: 23, holders: 29, txCount: 134, createdAgo: "5m", badge: "ZG", change: 189.3, graduated: false },
-].map((token) => ({ ...token, slug: token.symbol.toLowerCase() }))
-
-const LIVE_TXS = [
-  { type: "buy", token: "WCAT", amount: "0.5 WLC", time: "just now" },
-  { type: "sell", token: "SPNK", amount: "0.2 WLC", time: "2s ago" },
-  { type: "buy", token: "BRAI", amount: "1.2 WLC", time: "5s ago" },
-  { type: "create", token: "0GRV", amount: "1 WLC", time: "8s ago" },
-  { type: "buy", token: "DKDO", amount: "0.8 WLC", time: "12s ago" },
-  { type: "buy", token: "GNMS", amount: "2.1 WLC", time: "15s ago" },
-  { type: "sell", token: "RAMN", amount: "0.3 WLC", time: "20s ago" },
 ]
 
 const TERMS = [
@@ -127,12 +114,20 @@ function ProgressBar({ value, graduated }) {
   )
 }
 
-function Ticker() {
-  const items = [...LIVE_TXS, ...LIVE_TXS, ...LIVE_TXS]
+function Ticker({ items = [] }) {
+  if (!items.length) {
+    return (
+      <div style={{ padding: "10px 0", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
+        Live activity sync is catching up...
+      </div>
+    )
+  }
+
+  const loop = [...items, ...items, ...items]
   return (
     <div style={{ display: "flex", gap: 24, overflow: "hidden", padding: "10px 0", maskImage: "linear-gradient(90deg,transparent 0%,#000 5%,#000 95%,transparent 100%)" }}>
       <div style={{ display: "flex", gap: 24, animation: "tickerScroll 30s linear infinite", whiteSpace: "nowrap" }}>
-        {items.map((tx, index) => (
+        {loop.map((tx, index) => (
           <span key={`${tx.token}-${tx.time}-${index}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.35)", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: tx.type === "buy" ? "#00e5a0" : tx.type === "sell" ? "#ff4d6a" : "#6366f1", flexShrink: 0 }} />
             <span style={{ color: tx.type === "buy" ? "#00e5a0" : tx.type === "sell" ? "#ff4d6a" : "#6366f1" }}>{tx.type === "buy" ? "BUY" : tx.type === "sell" ? "SELL" : "NEW"}</span>
@@ -251,9 +246,9 @@ function TokenRow({ token, index, onOpen }) {
         </div>
         <div style={{ marginTop: 6 }}><ProgressBar value={token.progress} graduated={token.graduated} /></div>
       </div>
-      <div style={{ textAlign: "right", minWidth: 70 }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 600 }}>{token.mcap.toFixed(1)} WLC</div><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>mcap</div></div>
-      <div style={{ textAlign: "right", minWidth: 60 }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 600 }}>{token.volume24h.toFixed(1)}</div><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>vol</div></div>
-      <div style={{ textAlign: "right", minWidth: 60 }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: token.change >= 0 ? "#00e5a0" : "#ff4d6a" }}>{token.change >= 0 ? "+" : ""}{token.change.toFixed(1)}%</span></div>
+      <div style={{ textAlign: "right", minWidth: 70 }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 600 }}>{token.mcapDisplay} WLC</div><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>mcap</div></div>
+      <div style={{ textAlign: "right", minWidth: 60 }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 600 }}>{token.volume24hDisplay}</div><div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>vol</div></div>
+      <div style={{ textAlign: "right", minWidth: 60 }}><span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: token.graduated ? "#22c55e" : "#00e5ff" }}>{token.progress.toFixed(1)}%</span></div>
     </div>
   )
 }
@@ -408,14 +403,7 @@ function WalletPickerModal({ wallets, onClose, onSelect }) {
 }
 
 function DetailModal({ token, onClose }) {
-  const stats = [
-    ["Market Cap", `${token.mcap.toFixed(1)} WLC`, null],
-    ["24h Volume", `${token.volume24h.toFixed(1)} WLC`, null],
-    ["24h Change", `${token.change >= 0 ? "+" : ""}${token.change.toFixed(1)}%`, token.change >= 0 ? "#00e5a0" : "#ff4d6a"],
-    ["Holders", token.holders.toLocaleString(), null],
-    ["Transactions", token.txCount.toLocaleString(), null],
-    ["Progress", `${token.progress}%`, null],
-  ]
+  const stats = formatTorqrTokenDetailStats(token)
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "grid", placeItems: "center", padding: 24, animation: "modalBg 0.2s ease" }}>
@@ -428,7 +416,7 @@ function DetailModal({ token, onClose }) {
                 <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 20 }}>{token.name}</span>
                 {token.graduated ? <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 50, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontWeight: 600 }}>AMM LIVE</span> : null}
               </div>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>${token.symbol} | {token.createdAgo} ago</div>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>${token.symbol} | {token.createdAgo}</div>
             </div>
           </div>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16, display: "grid", placeItems: "center" }}>x</button>
@@ -444,16 +432,15 @@ function DetailModal({ token, onClose }) {
         <div style={{ padding: "20px 28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>
             <span style={{ color: "rgba(255,255,255,0.3)" }}>Graduation Progress</span>
-            <span style={{ color: token.graduated ? "#22c55e" : "#f0f0f5" }}>{token.graduated ? "Graduated" : `${token.progress}% / 10 WLC`}</span>
+            <span style={{ color: token.graduated ? "#22c55e" : "#f0f0f5" }}>{token.graduated ? "Graduated" : `${token.progress.toFixed(2)}%`}</span>
           </div>
           <div style={{ width: "100%", height: 8, borderRadius: 4, background: "rgba(255,255,255,0.04)" }}><div style={{ width: `${Math.min(token.progress, 100)}%`, height: "100%", borderRadius: 4, background: token.graduated ? "#22c55e" : token.progress > 80 ? "linear-gradient(90deg,#f0f000,#ff6b00)" : "linear-gradient(90deg,#00e5ff,#6366f1)" }} /></div>
         </div>
         <div style={{ padding: "0 28px 24px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <button style={{ padding: "14px 0", borderRadius: 10, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#00e5a0,#00b880)", color: "#08080e", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Buy</button>
-            <button style={{ padding: "14px 0", borderRadius: 10, border: "1px solid rgba(255,61,106,0.3)", background: "rgba(255,61,106,0.06)", color: "#ff4d6a", cursor: "pointer", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Sell</button>
+          <div style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.32)", lineHeight: 1.7 }}>
+            {token.description || "Live token metadata synced from Torqr. Trade execution remains available in the main Torqr trading app while Koinara mirrors the market list in real time."}
           </div>
-          <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.15)" }}>creator: {token.creator} | 1% fee | slippage protected</div>
+          <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: "rgba(255,255,255,0.15)" }}>creator: {token.creator} | source: {token.source === "api" ? "indexer" : "onchain fallback"}</div>
         </div>
       </div>
     </div>
@@ -481,38 +468,110 @@ export default function TorqrHub() {
   const [isDeploying, setIsDeploying] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [form, setForm] = useState({ name: "", symbol: "", desc: "", img: "" })
+  const [market, setMarket] = useState(() => ({
+    tokens: [],
+    stats: buildTorqrStatsSnapshot({ tokens: [] }),
+    ticker: [],
+    source: "loading",
+  }))
+  const [isMarketLoading, setIsMarketLoading] = useState(false)
+  const [marketError, setMarketError] = useState("")
+  const [selectedTokenFallback, setSelectedTokenFallback] = useState(null)
+  const [marketReloadKey, setMarketReloadKey] = useState(0)
 
   useEffect(() => {
     persistGateState(gate)
   }, [gate])
 
   const showCreate = String(location.pathname || "").startsWith("/torqr/create")
-  const selectedToken = useMemo(() => {
+  const selectedTokenAddress = useMemo(() => {
     const match = String(location.pathname || "").match(/\/torqr\/token\/([^/]+)$/)
     if (!match) return null
-    const slug = match[1].toLowerCase()
-    return TOKENS.find((token) => token.slug === slug || token.symbol.toLowerCase() === slug) || null
+    try {
+      return ethers.getAddress(match[1])
+    } catch {
+      return null
+    }
   }, [location.pathname])
 
-  const visibleTokens = useMemo(() => {
-    let list = [...TOKENS]
-    if (search) {
-      const query = search.toLowerCase()
-      list = list.filter((token) => token.name.toLowerCase().includes(query) || token.symbol.toLowerCase().includes(query))
+  useEffect(() => {
+    if (gate !== "ok") return undefined
+
+    let cancelled = false
+
+    async function syncMarket(showLoader) {
+      if (showLoader) {
+        setIsMarketLoading(true)
+      }
+
+      try {
+        const snapshot = await loadTorqrMarketSnapshot({ tab, search })
+        if (cancelled) return
+        setMarket(snapshot)
+        setMarketError("")
+      } catch (error) {
+        if (cancelled) return
+        const message = String(error?.message || "Torqr sync failed.")
+        setMarketError(message)
+        setMarket({
+          tokens: [],
+          stats: buildTorqrStatsSnapshot({ tokens: [] }),
+          ticker: [],
+          source: "error",
+        })
+      } finally {
+        if (!cancelled && showLoader) {
+          setIsMarketLoading(false)
+        }
+      }
     }
-    switch (tab) {
-      case "trending":
-        return list.sort((left, right) => right.volume24h - left.volume24h)
-      case "new":
-        return list.sort((left, right) => left.id - right.id)
-      case "graduating":
-        return list.filter((token) => !token.graduated).sort((left, right) => right.progress - left.progress)
-      case "graduated":
-        return list.filter((token) => token.graduated)
-      default:
-        return list
+
+    void syncMarket(true)
+    const intervalId = window.setInterval(() => {
+      void syncMarket(false)
+    }, 15000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
     }
-  }, [search, tab])
+  }, [gate, tab, search, marketReloadKey])
+
+  useEffect(() => {
+    if (!selectedTokenAddress) {
+      setSelectedTokenFallback(null)
+      return undefined
+    }
+
+    const inlineToken = market.tokens.find((token) => token.address === selectedTokenAddress)
+    if (inlineToken) {
+      setSelectedTokenFallback(null)
+      return undefined
+    }
+
+    let cancelled = false
+
+    void loadTorqrTokenDetail(selectedTokenAddress).then((token) => {
+      if (!cancelled) {
+        setSelectedTokenFallback(token)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setSelectedTokenFallback(null)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [market.tokens, selectedTokenAddress])
+
+  const selectedToken = useMemo(() => {
+    if (!selectedTokenAddress) return null
+    return market.tokens.find((token) => token.address === selectedTokenAddress) || selectedTokenFallback
+  }, [market.tokens, selectedTokenAddress, selectedTokenFallback])
+
+  const visibleTokens = market.tokens
 
   const walletConnected = Boolean(address)
   const walletLabel = isConnecting
@@ -540,7 +599,7 @@ export default function TorqrHub() {
   }
 
   function openToken(token) {
-    navigate(`/torqr/token/${token.slug}`)
+    navigate(`/torqr/token/${token.address}`)
   }
 
   async function runWalletConnect(walletId = null) {
@@ -668,13 +727,16 @@ export default function TorqrHub() {
         toast.success(tokenAddress ? `Token deployed: ${tokenAddress}` : "Token deployed successfully.", {
           id: "torqr-deploy-success",
         })
-
-        if (TORQR_APP_URL && tokenAddress) {
-          window.open(`${TORQR_APP_URL}/token/${tokenAddress}`, "_blank", "noopener,noreferrer")
-        }
-
-        closeModal()
         setForm({ name: "", symbol: "", desc: "", img: "" })
+        setSearch("")
+        setTab("new")
+        setMarketReloadKey((value) => value + 1)
+
+        if (tokenAddress) {
+          navigate(`/torqr/token/${tokenAddress}`)
+        } else {
+          closeModal()
+        }
       } catch (error) {
         toast.error(formatTorqrWalletError(error), { id: "torqr-deploy-error" })
       } finally {
@@ -767,38 +829,45 @@ export default function TorqrHub() {
             </div>
           </nav>
 
-          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "0 24px", background: "rgba(255,255,255,0.01)" }}><div style={{ maxWidth: 1280, margin: "0 auto" }}><Ticker /></div></div>
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "0 24px", background: "rgba(255,255,255,0.01)" }}><div style={{ maxWidth: 1280, margin: "0 auto" }}><Ticker items={market.ticker} /></div></div>
 
           <main style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(255,255,255,0.22)" }}>
+                {market.source === "api" ? "Synced from Torqr indexer." : market.source === "chain" ? "Indexer unavailable. Using live on-chain fallback." : isMarketLoading ? "Syncing Torqr market..." : "Waiting for market sync."}
+              </div>
+              {marketError ? (
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "rgba(245,158,11,0.78)" }}>
+                  {marketError}
+                </div>
+              ) : null}
+            </div>
             <div className="torqr-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, margin: "24px 0", borderRadius: 14, overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
-              {[
-                ["Total Tokens", "12", "TK"],
-                ["24h Volume", "34.2 WLC", "VOL"],
-                ["Graduated", "2", "AMM"],
-                ["Active Traders", "487", "USR"],
-              ].map(([label, value, icon], index) => (
+              {STAT_DEFS.map(([label, icon], index) => (
                 <div key={label} style={{ padding: "20px 24px", background: "rgba(255,255,255,0.02)", borderRight: index < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#00e5ff" }}>{icon}</span>
                     <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'JetBrains Mono',monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
                   </div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{value}</div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: "-0.03em" }}>{formatTorqrStatValue(label, market.stats)}</div>
                 </div>
               ))}
             </div>
 
             <div className="torqr-header" style={{ display: "grid", gridTemplateColumns: "32px 44px 1fr auto auto auto", alignItems: "center", gap: 14, padding: "10px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              {["#", "", "Token", "Market Cap", "Volume", "24h"].map((heading, index) => (
+              {["#", "", "Token", "Market Cap", "Volume", "Progress"].map((heading, index) => (
                 <span key={`${heading}-${index}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: "rgba(255,255,255,0.15)", textTransform: "uppercase", letterSpacing: "0.08em", textAlign: index > 2 ? "right" : "left", minWidth: index === 3 ? 70 : index > 3 ? 60 : undefined }}>{heading}</span>
               ))}
             </div>
 
             <div style={{ marginBottom: 40 }}>
-              {visibleTokens.length === 0 ? (
+              {isMarketLoading && visibleTokens.length === 0 ? (
+                <div style={{ padding: "60px 0", textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>Syncing live Torqr tokens...</div>
+              ) : visibleTokens.length === 0 ? (
                 <div style={{ padding: "60px 0", textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 14 }}>No tokens found</div>
               ) : (
                 visibleTokens.map((token, index) => (
-                  <TokenRow key={token.id} token={token} index={index} onOpen={openToken} />
+                  <TokenRow key={token.address} token={token} index={index} onOpen={openToken} />
                 ))
               )}
             </div>
