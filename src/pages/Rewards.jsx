@@ -3,11 +3,14 @@ import useStore from "../lib/store.js"
 import { usePolling } from "../hooks/usePolling.js"
 import { useT } from "../lib/i18n.js"
 import { getAgentFeePolicy, getPromoPhaseLabelKey } from "../lib/feeConfig.js"
+import { WORLDLAND } from "../lib/chain.js"
+import { supportsActiveEpochRewards } from "../lib/portalRewards.js"
 import { Button, EmptyState, StatusPill } from "../components/ui.jsx"
 
 export default function Rewards() {
   const {
     address,
+    chainId,
     rewardHistory,
     workRewards,
     dashboard,
@@ -15,10 +18,12 @@ export default function Rewards() {
     refreshDashboard,
     claimActiveReward,
     claimWorkReward,
+    switchChain,
     lang,
   } = useStore()
   const t = useT(lang)
   const agentFeePolicy = getAgentFeePolicy()
+  const activeRewardsSupported = supportsActiveEpochRewards(chainId)
 
   usePolling(loadRewards, 20000, Boolean(address))
   usePolling(refreshDashboard, 20000, true)
@@ -39,6 +44,32 @@ export default function Rewards() {
     } catch (error) {
       toast.error(error.reason || error.message)
     }
+  }
+
+  if (!activeRewardsSupported) {
+    return (
+      <div className="page-shell space-y-8">
+        <section className="overflow-hidden rounded-[32px] border border-primary/10 bg-[radial-gradient(circle_at_top_left,rgba(0,255,180,0.12),transparent_32%),linear-gradient(180deg,rgba(19,42,34,0.96),rgba(8,14,13,0.98))] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)] lg:p-10">
+          <div className="mb-4 inline-flex rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+            {t("rewards_tag")}
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t("rewards_title")}</h1>
+          <p className="mt-4 text-lg leading-8 text-slate-300">{t("rewards_subtitle")}</p>
+        </section>
+
+        <section className="rounded-[28px] border border-primary/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+          <div className="max-w-3xl space-y-4">
+            <h2 className="text-2xl font-black text-white">Active epoch rewards are available on Worldland only.</h2>
+            <p className="text-sm leading-7 text-slate-300">
+              Base can show your connected wallet state and Base KOIN balance, but OpenClaw attendance rewards and bond claims still settle on Worldland.
+            </p>
+            <Button variant="primary" onClick={() => switchChain(WORLDLAND)}>
+              Switch wallet to Worldland
+            </Button>
+          </div>
+        </section>
+      </div>
+    )
   }
 
   return (
@@ -75,7 +106,7 @@ export default function Rewards() {
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="rewards-history-layout">
         <PanelCard title={t("rewards_active_history")} subtitle={t("rewards_active_history_note")}>
           {rewardHistory.length === 0 ? (
             <EmptyState title={t("rewards_no_active")} description={t("common_no_data")} />

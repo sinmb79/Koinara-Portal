@@ -107,9 +107,9 @@ export default function Navbar() {
     await runConnect(wallets[0]?.id ?? null)
   }
 
-  async function handleSwitch() {
+  async function handleSwitch(targetChain = null) {
     try {
-      await switchChain()
+      await switchChain(targetChain)
     } catch (error) {
       toast.error(formatWalletError(error, t), { id: "wallet-switch-error" })
     }
@@ -231,34 +231,40 @@ export default function Navbar() {
               {/* Network selector dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => setNetworkPickerOpen((v) => !v)}
+                  onClick={() => setNetworkPickerOpen((value) => !value)}
                   className={`inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
                     isCorrectChain
                       ? "border-primary/15 bg-primary/5 text-primary hover:bg-primary/10"
                       : "border-red-500/30 bg-red-500/10 text-red-400"
                   }`}
                 >
-                  {chainId === 8453 ? "⬡ Base" : "🌐 Worldland"}
-                  <span className="text-[9px] ml-0.5">▼</span>
+                  {chainId === BASE.chainId ? "Base" : "Worldland"}
+                  <span className="ml-0.5 text-[9px]">v</span>
                 </button>
-                {networkPickerOpen && (
-                  <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-2xl border border-white/10 bg-[#15111b] shadow-xl overflow-hidden">
+                {networkPickerOpen ? (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#15111b] shadow-xl">
                     <button
-                      onClick={async () => { setNetworkPickerOpen(false); await switchChain(WORLDLAND) }}
-                      className={`flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold transition hover:bg-white/5 ${chainId === 103 ? "text-primary" : "text-slate-300"}`}
+                      onClick={async () => {
+                        setNetworkPickerOpen(false)
+                        await handleSwitch(WORLDLAND)
+                      }}
+                      className={`flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold transition hover:bg-white/5 ${chainId === WORLDLAND.chainId ? "text-primary" : "text-slate-300"}`}
                     >
-                      🌐 Worldland Mainnet
-                      {chainId === 103 && <span className="ml-auto text-primary">✓</span>}
+                      Worldland Mainnet
+                      {chainId === WORLDLAND.chainId ? <span className="ml-auto text-primary">OK</span> : null}
                     </button>
                     <button
-                      onClick={async () => { setNetworkPickerOpen(false); await switchChain(BASE) }}
-                      className={`flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold transition hover:bg-white/5 ${chainId === 8453 ? "text-primary" : "text-slate-300"}`}
+                      onClick={async () => {
+                        setNetworkPickerOpen(false)
+                        await handleSwitch(BASE)
+                      }}
+                      className={`flex w-full items-center gap-2 px-4 py-3 text-xs font-semibold transition hover:bg-white/5 ${chainId === BASE.chainId ? "text-primary" : "text-slate-300"}`}
                     >
-                      ⬡ Base Mainnet
-                      {chainId === 8453 && <span className="ml-auto text-primary">✓</span>}
+                      Base Mainnet
+                      {chainId === BASE.chainId ? <span className="ml-auto text-primary">OK</span> : null}
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
               <button
                 onClick={async () => { disconnect(); await handleConnect() }}

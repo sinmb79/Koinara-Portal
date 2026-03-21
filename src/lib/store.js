@@ -3,6 +3,8 @@ import { ethers } from "ethers"
 import { WORLDLAND, BASE, SUPPORTED_CHAINS, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
 import { FEE_CONFIG, calcRequesterFee } from "./feeConfig.js"
 import { discoverInjectedWallets, listInjectedWallets, requireInjectedWallet } from "./wallet.js"
+import { estimateActiveEpochReward, getKoinBalanceAddress, getKoinBalanceChain, supportsActiveEpochRewards } from "./portalRewards.js"
+import { createWalletSession, ensureWalletChain } from "./walletSession.js"
 import {
   ADDRESSES,
   TIMELOCK_ABI,
@@ -75,6 +77,16 @@ function buildContracts(runner) {
   }
 }
 
+async function readKoinBalance({ chainId, address, fallbackProvider }) {
+  const balanceChain = getKoinBalanceChain(chainId)
+  const balanceProvider =
+    fallbackProvider && balanceChain.chainId === WORLDLAND.chainId
+      ? fallbackProvider
+      : new ethers.JsonRpcProvider(balanceChain.rpcUrls[0], balanceChain.chainId)
+  const koinContract = new ethers.Contract(getKoinBalanceAddress(balanceChain.chainId), KOIN_ABI, balanceProvider)
+  return koinContract.balanceOf(address)
+}
+
 const INITIAL_DASHBOARD = {
   wlcBalance: "0.0000",
   koinBalance: "0.00",
@@ -137,26 +149,18 @@ const useStore = create((set, get) => ({
     try {
       const wallets = await discoverInjectedWallets()
       const selected = requireInjectedWallet(walletId, wallets)
-      const provider = new ethers.BrowserProvider(selected.provider)
       const accounts = await selected.provider.request({ method: "eth_requestAccounts", params: [] })
       if (!Array.isArray(accounts) || accounts.length === 0) {
         throw new Error("The selected wallet has no available account.")
       }
-      const signer = await provider.getSigner()
-      const address = await signer.getAddress()
-      const network = await provider.getNetwork()
-      const chainId = Number(network.chainId)
-      const isCorrectChain = chainId === WORLDLAND.chainId || chainId === BASE.chainId
-      set({
-        provider,
-        signer,
+      const session = await createWalletSession({
         walletProvider: selected.provider,
         walletId: selected.id,
         walletName: selected.name,
-        address,
-        chainId,
-        isCorrectChain,
-        contracts: buildContracts(signer),
+      })
+      set({
+        ...session,
+        contracts: buildContracts(session.signer),
         isConnecting: false,
       })
       await Promise.allSettled([get().refreshDashboard(), get().loadJobs(), get().loadRewards()])
@@ -186,38 +190,23 @@ const useStore = create((set, get) => ({
     const chain = targetChain || WORLDLAND
     const wallets = listInjectedWallets()
     const injected = get().walletProvider || requireInjectedWallet(wallets[0]?.id, wallets).provider
-    try {
-      await injected.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: chain.chainIdHex }],
-      })
-    } catch (error) {
-      if (error.code === 4902) {
-        await injected.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: chain.chainIdHex,
-            chainName: chain.chainName,
-            nativeCurrency: chain.nativeCurrency,
-            rpcUrls: chain.rpcUrls,
-            blockExplorerUrls: chain.blockExplorerUrls,
-          }],
-        })
-      } else {
-        throw error
-      }
-    }
-    // Update chainId after switch
-    const provider = get().provider
-    if (provider) {
-      const network = await provider.getNetwork()
-      const newChainId = Number(network.chainId)
-      set({ chainId: newChainId, isCorrectChain: newChainId === WORLDLAND.chainId || newChainId === BASE.chainId })
-    }
+    await ensureWalletChain({ walletProvider: injected, chain })
+
+    const session = await createWalletSession({
+      walletProvider: injected,
+      walletId: get().walletId,
+      walletName: get().walletName,
+    })
+
+    set({
+      ...session,
+      contracts: buildContracts(session.signer),
+    })
+    await Promise.allSettled([get().refreshDashboard(), get().loadJobs(), get().loadRewards()])
   },
 
   refreshDashboard: async () => {
-    const { readContracts, provider, contracts, address } = get()
+    const { readContracts, readProvider, provider, contracts, address, chainId } = get()
     if (!readContracts) return
     set({ isLoadingDashboard: true })
     try {
@@ -244,44 +233,51 @@ const useStore = create((set, get) => ({
       }
 
       if (address && provider && contracts) {
-        const [wlcBalance, koinBalance, stake, node, genesisTimestamp, epochDuration] = await Promise.all([
-          provider.getBalance(address),
-          readContracts.koin.balanceOf(address),
-          readContracts.nodeStaking.getStake(address),
-          readContracts.nodeReg.getNode(address),
-          readContracts.nodeStaking.genesisTimestamp(),
-          readContracts.nodeStaking.epochDuration(),
+        const activeRewardsSupported = supportsActiveEpochRewards(chainId)
+        const [wlcBalance, koinBalance] = await Promise.all([
+          activeRewardsSupported ? provider.getBalance(address) : 0n,
+          readKoinBalance({ chainId, address, fallbackProvider: readProvider }),
         ])
 
-        let bondStatus = "none"
-        let bondReadyAt = null
-        const stakeAmount = toBigInt(stake.amount)
-        const unstakeRequestedAt = Number(stake.unstakeRequestedAt)
-
-        if (stake.active && stakeAmount > 0n) {
-          bondStatus = unstakeRequestedAt > 0 ? "pending" : "active"
-        } else if (stakeAmount > 0n) {
-          bondStatus = "pending"
-        }
-
-        if (unstakeRequestedAt > 0) {
-          const cooldownEndEpoch = epochAt(
-            unstakeRequestedAt,
-            Number(genesisTimestamp),
-            Number(epochDuration),
-          ) + 7
-          bondReadyAt = Number(genesisTimestamp) + cooldownEndEpoch * Number(epochDuration)
-        }
-
-        dashboard.wlcBalance = formatToken(wlcBalance)
+        dashboard.wlcBalance = activeRewardsSupported ? formatToken(wlcBalance) : "0.0000"
         dashboard.koinBalance = formatToken(koinBalance, 2)
-        dashboard.bondAmount = formatToken(stakeAmount)
-        dashboard.bondStatus = bondStatus
-        dashboard.bondReadyAt = bondReadyAt
-        dashboard.nodeRegistered = Number(node.registeredAt) > 0
-        dashboard.nodeRole = Number(node.role)
-        dashboard.nodeLastHeartbeatEpoch = Number(node.lastHeartbeatEpoch)
-        dashboard.nodeMetadataHash = node.metadataHash
+
+        if (activeRewardsSupported) {
+          const [stake, node, genesisTimestamp, epochDuration] = await Promise.all([
+            contracts.nodeStaking.getStake(address),
+            contracts.nodeReg.getNode(address),
+            readContracts.nodeStaking.genesisTimestamp(),
+            readContracts.nodeStaking.epochDuration(),
+          ])
+
+          let bondStatus = "none"
+          let bondReadyAt = null
+          const stakeAmount = toBigInt(stake.amount)
+          const unstakeRequestedAt = Number(stake.unstakeRequestedAt)
+
+          if (stake.active && stakeAmount > 0n) {
+            bondStatus = unstakeRequestedAt > 0 ? "pending" : "active"
+          } else if (stakeAmount > 0n) {
+            bondStatus = "pending"
+          }
+
+          if (unstakeRequestedAt > 0) {
+            const cooldownEndEpoch = epochAt(
+              unstakeRequestedAt,
+              Number(genesisTimestamp),
+              Number(epochDuration),
+            ) + 7
+            bondReadyAt = Number(genesisTimestamp) + cooldownEndEpoch * Number(epochDuration)
+          }
+
+          dashboard.bondAmount = formatToken(stakeAmount)
+          dashboard.bondStatus = bondStatus
+          dashboard.bondReadyAt = bondReadyAt
+          dashboard.nodeRegistered = Number(node.registeredAt) > 0
+          dashboard.nodeRole = Number(node.role)
+          dashboard.nodeLastHeartbeatEpoch = Number(node.lastHeartbeatEpoch)
+          dashboard.nodeMetadataHash = node.metadataHash
+        }
       }
 
       set({ dashboard, isLoadingDashboard: false })
@@ -381,10 +377,24 @@ const useStore = create((set, get) => ({
   },
 
   loadRewards: async () => {
-    const { address, readContracts, dashboard, jobs } = get()
+    const { address, readContracts, dashboard, jobs, chainId } = get()
     if (!address || !readContracts) return
     set({ isLoadingRewards: true })
     try {
+      if (!supportsActiveEpochRewards(chainId)) {
+        set((state) => ({
+          rewardHistory: [],
+          workRewards: [],
+          isLoadingRewards: false,
+          dashboard: {
+            ...state.dashboard,
+            pendingActiveRewards: "0.00",
+            pendingWorkRewards: "0.00",
+          },
+        }))
+        return
+      }
+
       const lookback = 8
       const lastClosedEpoch = Math.max(0, dashboard.currentEpoch - 1)
       const epochs = Array.from({ length: Math.min(lookback, lastClosedEpoch + 1) }, (_, index) => lastClosedEpoch - index)
@@ -399,7 +409,6 @@ const useStore = create((set, get) => ({
             readContracts.distributor.epochAddressWeight(epoch, address),
             readContracts.distributor.epochAcceptedWeight(epoch),
           ])
-          const estimatedActiveReward = activeAt && activeNodes > 0n ? emission / activeNodes : 0n
           return {
             epoch,
             activeNodes: Number(activeNodes),
@@ -407,7 +416,12 @@ const useStore = create((set, get) => ({
             activeAt,
             addressWeight: Number(addressWeight),
             totalWeight: Number(totalWeight),
-            estimatedActiveReward,
+            estimatedActiveReward: estimateActiveEpochReward({
+              emission,
+              addressWeight,
+              totalWeight,
+              activeAt,
+            }),
           }
         }),
       )
