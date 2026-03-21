@@ -1,4 +1,5 @@
 import { toast } from "react-hot-toast"
+import { Link } from "react-router-dom"
 import { BASE, WORLDLAND } from "../lib/chain.js"
 import { Button, StatusPill } from "../components/ui.jsx"
 
@@ -401,9 +402,14 @@ export default function Tokenomics() {
               </a>
             </div>
             <p className="mt-4 text-sm leading-7 text-slate-400">
-              If an official external market is launched later, it should map cleanly to the canonical Worldland token rather
-              than the current Base mock deployment.
+              The official KOIN/WLC market is available as a dedicated swap surface on Koinara.
             </p>
+            <Link
+              to="/swap"
+              className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition hover:border-primary/40 hover:bg-primary/15"
+            >
+              Open Official KOIN/WLC Swap →
+            </Link>
           </article>
         </section>
 
