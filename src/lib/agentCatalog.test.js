@@ -1,7 +1,41 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 
-import { enrichAgentWithChainData } from "./agentCatalog.js"
+import { buildAgentIdentitySnapshot, enrichAgentWithChainData } from "./agentCatalog.js"
+
+test("buildAgentIdentitySnapshot keeps canonical owner metadata for registered agents", () => {
+  const snapshot = buildAgentIdentitySnapshot({
+    registered: true,
+    identityRef: "0x" + "12".repeat(32),
+    metadataURI: "ipfs://agent-id-card/example",
+    owner: "0x59816544dcD2B96fB35e7Eac67BA26510e11B996",
+    pendingOwner: "0x26ce295f8DD8866C46d6355A7fDDe5CaEB76f3AC",
+    relinkNonce: 2,
+  })
+
+  assert.deepEqual(snapshot, {
+    registered: true,
+    identityRef: "0x" + "12".repeat(32),
+    metadataURI: "ipfs://agent-id-card/example",
+    owner: "0x59816544dcD2B96fB35e7Eac67BA26510e11B996",
+    pendingOwner: "0x26ce295f8DD8866C46d6355A7fDDe5CaEB76f3AC",
+    relinkNonce: 2,
+  })
+})
+
+test("buildAgentIdentitySnapshot ignores empty registration state", () => {
+  assert.equal(
+    buildAgentIdentitySnapshot({
+      registered: false,
+      identityRef: null,
+      metadataURI: "",
+      owner: null,
+      pendingOwner: null,
+      relinkNonce: 0,
+    }),
+    null,
+  )
+})
 
 test("Torqr bridge lookup failure does not erase Koinara chain enrichment", async () => {
   const baseAgent = {

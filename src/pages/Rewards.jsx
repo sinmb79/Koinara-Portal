@@ -3,7 +3,8 @@ import useStore from "../lib/store.js"
 import { usePolling } from "../hooks/usePolling.js"
 import { useT } from "../lib/i18n.js"
 import { getAgentFeePolicy, getPromoPhaseLabelKey } from "../lib/feeConfig.js"
-import { Button, EmptyState, StatusPill } from "../components/ui.jsx"
+import { classifyMissionReward } from "../lib/missionParticipation.js"
+import { Button, EmptyState, StatusPill, LegacyNotice, Notice } from "../components/ui.jsx"
 
 export default function Rewards() {
   const {
@@ -43,6 +44,7 @@ export default function Rewards() {
 
   return (
     <div className="page-shell space-y-8">
+      <LegacyNotice t={t} />
       <section className="overflow-hidden rounded-[32px] border border-primary/10 bg-[radial-gradient(circle_at_top_left,rgba(0,255,180,0.12),transparent_32%),linear-gradient(180deg,rgba(19,42,34,0.96),rgba(8,14,13,0.98))] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)] lg:p-10">
         <div className="mb-4 inline-flex rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           {t("rewards_tag")}
@@ -59,24 +61,32 @@ export default function Rewards() {
         })}
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard icon="schedule" label={t("rewards_current_epoch")} value={dashboard.currentEpoch} trend="Live" />
         <KpiCard
-          icon="workspace_premium"
-          label={t("dashboard_kpi_active_rewards")}
-          value={`${dashboard.pendingActiveRewards} KOIN`}
-          trend="Active"
+          icon="payments"
+          label={t("dashboard_kpi_mission_rewards")}
+          value={`${dashboard.pendingMissionRewards} KOIN`}
+          trend={t("mission_verdict_driven")}
         />
         <KpiCard
-          icon="payments"
-          label={t("dashboard_kpi_work_rewards")}
-          value={`${dashboard.pendingWorkRewards} KOIN`}
-          trend="Work"
+          icon="fact_check"
+          label={t("dashboard_kpi_verification_rewards")}
+          value={`${dashboard.pendingVerificationRewards} KOIN`}
+          trend="Verifier"
+        />
+        <KpiCard
+          icon="workspace_premium"
+          label={t("dashboard_kpi_active_rewards_legacy")}
+          value={`${dashboard.pendingActiveRewards} KOIN`}
+          trend="Legacy"
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <PanelCard title={t("rewards_active_history")} subtitle={t("rewards_active_history_note")}>
+      <Notice>{t("rewards_active_legacy_note")}</Notice>
+
+      <div className="rewards-history-layout">
+        <PanelCard title={t("rewards_active_history")} subtitle={t("rewards_active_legacy_note")}>
           {rewardHistory.length === 0 ? (
             <EmptyState title={t("rewards_no_active")} description={t("common_no_data")} />
           ) : (
@@ -131,7 +141,7 @@ export default function Rewards() {
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-3">
-                      <StatusPill tone={item.role === "provider" ? "success" : "info"}>
+                      <StatusPill tone={classifyMissionReward({ source: item.source }).type === "mission" ? "success" : "info"}>
                         {item.role === "provider" ? t("rewards_role_provider") : t("rewards_role_verifier")}
                       </StatusPill>
                       <h3 className="text-xl font-black text-white">Job #{item.jobId}</h3>

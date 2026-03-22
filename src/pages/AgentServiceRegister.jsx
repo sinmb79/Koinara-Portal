@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { ethers } from "ethers"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { Button, Notice } from "../components/ui.jsx"
 import AgentCard from "../components/AgentCard.jsx"
-import { AGENT_CATEGORIES, loadMyAgentService, saveAgentService } from "../lib/agentCatalog.js"
+import { AGENT_CATEGORIES, buildAgentIdentitySnapshot, loadMyAgentService, saveAgentService } from "../lib/agentCatalog.js"
 
 const EMPTY_FORM = {
   serviceName: "",
@@ -26,11 +27,13 @@ const inputClass =
   "h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
 
 export default function AgentServiceRegister() {
-  const { address, lang, signer } = useStore()
+  const { address, lang, signer, agentIdentity } = useStore()
   const t = useT(lang)
   const [form, setForm] = useState(EMPTY_FORM)
   const [status, setStatus] = useState("idle")
   const [message, setMessage] = useState("")
+  const canPublishService = Boolean(agentIdentity.registered)
+  const identitySnapshot = useMemo(() => buildAgentIdentitySnapshot(agentIdentity), [agentIdentity])
 
   useEffect(() => {
     if (!address) {
@@ -92,6 +95,7 @@ export default function AgentServiceRegister() {
 
     try {
       if (!signer) throw new Error(t("common_wallet_required"))
+      if (!canPublishService) throw new Error(t("agent_service_registration_required_body"))
       const payload = {
         name: form.serviceName.trim(),
         serviceName: form.serviceName.trim(),
@@ -106,6 +110,7 @@ export default function AgentServiceRegister() {
         gpu: form.gpu.trim(),
         ram: form.ram.trim(),
         concurrent: form.concurrent.trim(),
+        identityRegistration: identitySnapshot,
       }
       const signature = await signer.signMessage(JSON.stringify(payload))
       await saveAgentService(address, { ...payload, signature })
@@ -127,7 +132,30 @@ export default function AgentServiceRegister() {
         <p className="max-w-3xl text-lg leading-8 text-slate-400">{t("agent_register_subtitle")}</p>
       </section>
 
-      <div className="mt-8 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="rounded-3xl border border-primary/10 bg-white/5 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{t("nav_agent_id_card")}</div>
+            <div className="mt-2 text-xl font-bold text-white">
+              {canPublishService ? t("agent_service_registration_ready_title") : t("agent_service_registration_required_title")}
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-400">
+              {canPublishService ? t("agent_service_registration_ready_body") : t("agent_service_registration_required_body")}
+            </p>
+            {!agentIdentity.available ? (
+              <p className="mt-2 text-sm leading-7 text-amber-300">{t("agent_id_unavailable")}</p>
+            ) : null}
+          </div>
+          <Link
+            to="/dashboard/agent-id"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition hover:bg-primary/20"
+          >
+            {t("home_cta_register_agent")}
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-8 2xl:grid-cols-[1.1fr_0.9fr]">
         <form onSubmit={handlePublish} className="space-y-6 rounded-3xl border border-primary/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
           <section className="grid gap-5 md:grid-cols-2">
             <Field label={t("agent_register_service_name")}>
@@ -200,7 +228,7 @@ export default function AgentServiceRegister() {
           <div className="space-y-4">
             <Notice>{t("agent_register_signature_note")}</Notice>
             {message ? <div className={`rounded-2xl border px-4 py-3 text-sm ${status === "success" ? "border-primary/20 bg-primary/10 text-primary" : "border-rose-400/20 bg-rose-400/10 text-rose-200"}`}>{message}</div> : null}
-            <Button variant="primary" loading={status === "saving"}>
+            <Button variant="primary" loading={status === "saving"} disabled={!canPublishService}>
               {status === "saving" ? t("agent_register_saving") : t("agent_register_publish")}
             </Button>
           </div>

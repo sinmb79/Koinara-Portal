@@ -135,7 +135,7 @@ export default function AgentCatalog() {
         <p className="mx-auto mt-3 max-w-2xl text-slate-400">{t("agent_catalog_cta_body")}</p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Link
-            to="/dashboard/agent-service"
+            to="/dashboard/agent-id"
             className="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-6 py-3 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
           >
             {t("agent_catalog_cta_register")}

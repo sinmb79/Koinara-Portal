@@ -4,6 +4,7 @@ import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { getAllAgents } from "../lib/agentCatalog.js"
 import AgentCard from "../components/AgentCard.jsx"
+import { LegacyNotice, Notice } from "../components/ui.jsx"
 
 export default function Providers() {
   const { dashboard, lang, jobs } = useStore()
@@ -32,6 +33,7 @@ export default function Providers() {
 
   return (
     <div className="page-shell space-y-8">
+      <LegacyNotice t={t} />
       <section className="overflow-hidden rounded-[32px] border border-primary/10 bg-[radial-gradient(circle_at_top_left,rgba(0,255,180,0.12),transparent_32%),linear-gradient(180deg,rgba(19,42,34,0.96),rgba(8,14,13,0.98))] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)] lg:p-10">
         <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
           <div>
@@ -41,11 +43,11 @@ export default function Providers() {
             <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t("providers_title")}</h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">{t("providers_subtitle")}</p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/agents" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-[#0b2019] transition hover:brightness-110">
-                {t("providers_browse_agents")}
+              <Link to="/missions" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-[#0b2019] transition hover:brightness-110">
+                {t("nav_missions")}
               </Link>
-              <Link to="/dashboard/register" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-semibold text-primary transition hover:bg-primary/20">
-                {t("dashboard_action_register")}
+              <Link to="/dashboard/agent-id" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-semibold text-primary transition hover:bg-primary/20">
+                {t("home_cta_register_agent")}
               </Link>
             </div>
           </div>
@@ -58,6 +60,8 @@ export default function Providers() {
           </div>
         </div>
       </section>
+
+      <Notice>{t("dashboard_reboot_notice")}</Notice>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[28px] border border-primary/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">

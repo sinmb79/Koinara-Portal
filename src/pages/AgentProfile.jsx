@@ -3,14 +3,21 @@ import { Link, useParams } from "react-router-dom"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import { Button, EmptyState, LoadingState, StatusPill } from "../components/ui.jsx"
-import { getAgentByAddress } from "../lib/agentCatalog.js"
+import { buildAgentIdentitySnapshot, getAgentByAddress } from "../lib/agentCatalog.js"
 import { shortAddress } from "../lib/chain.js"
 import { getTorqrAction } from "../lib/torqrLinks.js"
 import { TORQR_APP_URL } from "../lib/torqrIntegration.js"
 
+function shortHash(value, head = 10, tail = 8) {
+  if (!value) return "-"
+  const text = String(value)
+  if (text.length <= head + tail) return text
+  return `${text.slice(0, head)}...${text.slice(-tail)}`
+}
+
 export default function AgentProfile() {
   const { address: routeAddress } = useParams()
-  const { lang, jobs } = useStore()
+  const { lang, jobs, address: connectedAddress, agentIdentity: connectedAgentIdentity } = useStore()
   const t = useT(lang)
   const [agent, setAgent] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -54,6 +61,18 @@ export default function AgentProfile() {
     })
   }, [agent])
 
+  const profileIdentity = useMemo(() => {
+    if (!agent) return null
+    if (
+      connectedAddress &&
+      routeAddress &&
+      connectedAddress.toLowerCase() === routeAddress.toLowerCase()
+    ) {
+      return buildAgentIdentitySnapshot(connectedAgentIdentity)
+    }
+    return buildAgentIdentitySnapshot(agent.identityRegistration)
+  }, [agent, connectedAddress, connectedAgentIdentity, routeAddress])
+
   async function handleCopy() {
     if (!agent) return
     await navigator.clipboard.writeText(agent.address)
@@ -79,7 +98,7 @@ export default function AgentProfile() {
 
   return (
     <div className="page-shell">
-      <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+      <div className="grid gap-8 2xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
           <section className="rounded-3xl border border-primary/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -126,9 +145,23 @@ export default function AgentProfile() {
                     </span>
                   </div>
 
-                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-primary">
-                    <span className="material-symbols-outlined text-sm">shield</span>
-                    {t("agent_profile_bonded", { bond: agent.bond })}
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+                      <span className="material-symbols-outlined text-sm">shield</span>
+                      {t("agent_profile_bonded", { bond: agent.bond })}
+                    </div>
+                    {profileIdentity?.registered ? (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
+                        <span className="material-symbols-outlined text-sm">badge</span>
+                        {t("agent_id_profile_badge")}
+                      </div>
+                    ) : null}
+                    {profileIdentity?.pendingOwner ? (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-amber-300">
+                        <span className="material-symbols-outlined text-sm">sync_alt</span>
+                        {t("agent_id_status_pending")}
+                      </div>
+                    ) : null}
                   </div>
                   {agent.torqrTokenAddress ? (
                     <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-300">
@@ -174,6 +207,16 @@ export default function AgentProfile() {
         </div>
 
         <aside className="rounded-3xl border border-primary/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+          <div className="mb-6 rounded-2xl border border-primary/15 bg-[#10261f]/70 p-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{t("nav_agent_id_card")}</div>
+            <div className="mt-4 space-y-3">
+              <InfoRow label={t("agent_id_status_label")} value={profileIdentity?.registered ? t("agent_id_status_verified") : profileIdentity?.pendingOwner ? t("agent_id_status_pending") : t("agent_id_status_unlinked")} />
+              <InfoRow label={t("agent_id_owner_wallet_label")} value={profileIdentity?.owner ? shortAddress(profileIdentity.owner, 8, 6) : t("agent_id_profile_missing")} mono />
+              <InfoRow label={t("agent_id_identity_ref_label")} value={profileIdentity?.identityRef ? shortHash(profileIdentity.identityRef) : "-"} mono />
+              <InfoRow label={t("agent_id_metadata_uri")} value={profileIdentity?.metadataURI || "-"} />
+            </div>
+          </div>
+
           <h2 className="flex items-center gap-2 text-lg font-bold text-white">
             <span className="material-symbols-outlined text-primary">location_on</span>
             {t("agent_profile_node_location")}
@@ -200,7 +243,7 @@ export default function AgentProfile() {
           <span className="material-symbols-outlined text-primary">grid_view</span>
           <h2 className="text-2xl font-bold">{t("agent_profile_services")}</h2>
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 2xl:grid-cols-2">
           {agent.services.map((service) => (
             <article key={service.id} className="overflow-hidden rounded-3xl border border-primary/10 bg-white/5 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
               <div className="p-6">
@@ -245,7 +288,7 @@ export default function AgentProfile() {
         </div>
       </section>
 
-      <section className="mt-10 grid gap-8 lg:grid-cols-[2fr_1fr]">
+      <section className="mt-10 grid gap-8 2xl:grid-cols-[2fr_1fr]">
         <div>
           <h2 className="mb-4 text-2xl font-bold text-white">{t("agent_profile_job_history")}</h2>
           <div className="overflow-hidden rounded-3xl border border-primary/10 bg-white/5 shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
@@ -296,6 +339,15 @@ function StatCard({ label, value, accent }) {
     <div className="rounded-3xl border border-primary/10 bg-white/5 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
       <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</div>
       <div className={`mt-2 text-3xl font-black tracking-tight ${accent ? "text-primary" : "text-white"}`}>{value}</div>
+    </div>
+  )
+}
+
+function InfoRow({ label, value, mono = false }) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-black/20 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
+      <div className={`mt-2 text-sm text-slate-200 ${mono ? "font-mono" : ""}`}>{value}</div>
     </div>
   )
 }

@@ -2,9 +2,11 @@ import { create } from "zustand"
 import { ethers } from "ethers"
 import { WORLDLAND, BASE, SUPPORTED_CHAINS, JOB_TYPE_OPTIONS, epochAt } from "./chain.js"
 import { FEE_CONFIG, calcRequesterFee } from "./feeConfig.js"
+import { summarizeMissionRewards } from "./missionParticipation.js"
 import { discoverInjectedWallets, listInjectedWallets, requireInjectedWallet } from "./wallet.js"
 import {
   ADDRESSES,
+  AGENT_REGISTRY_ABI,
   TIMELOCK_ABI,
   KOIN_ABI,
   NODE_STAKING_ABI,
@@ -63,10 +65,18 @@ function writePortalFeeMetadata(value) {
   }
 }
 
+function hasConfiguredContract(address) {
+  return Boolean(address) && address !== ethers.ZeroAddress
+}
+
 function buildContracts(runner) {
   return {
     timelock: new ethers.Contract(ADDRESSES.timelock, TIMELOCK_ABI, runner),
     koin: new ethers.Contract(ADDRESSES.koin, KOIN_ABI, runner),
+    missionKoin: new ethers.Contract(ADDRESSES.missionKoin, KOIN_ABI, runner),
+    agentRegistry: hasConfiguredContract(ADDRESSES.agentRegistry)
+      ? new ethers.Contract(ADDRESSES.agentRegistry, AGENT_REGISTRY_ABI, runner)
+      : null,
     nodeStaking: new ethers.Contract(ADDRESSES.nodeStaking, NODE_STAKING_ABI, runner),
     nodeReg: new ethers.Contract(ADDRESSES.nodeReg, NODE_REGISTRY_ABI, runner),
     registry: new ethers.Contract(ADDRESSES.registry, REGISTRY_ABI, runner),
@@ -80,6 +90,8 @@ const INITIAL_DASHBOARD = {
   koinBalance: "0.00",
   bondAmount: "0.0000",
   pendingActiveRewards: "0.00",
+  pendingMissionRewards: "0.00",
+  pendingVerificationRewards: "0.00",
   pendingWorkRewards: "0.00",
   currentEpoch: 0,
   minBond: "0.0000",
@@ -93,6 +105,16 @@ const INITIAL_DASHBOARD = {
   nodeLastHeartbeatEpoch: null,
   nodeMetadataHash: null,
   timelockDelay: "0",
+}
+
+const INITIAL_AGENT_IDENTITY = {
+  available: hasConfiguredContract(ADDRESSES.agentRegistry),
+  registered: false,
+  identityRef: null,
+  metadataURI: "",
+  owner: null,
+  pendingOwner: null,
+  relinkNonce: 0,
 }
 
 const useStore = create((set, get) => ({
@@ -115,6 +137,7 @@ const useStore = create((set, get) => ({
   readContracts: null,
   contracts: null,
   dashboard: { ...INITIAL_DASHBOARD },
+  agentIdentity: { ...INITIAL_AGENT_IDENTITY },
   jobs: [],
   rewardHistory: [],
   workRewards: [],
@@ -159,7 +182,7 @@ const useStore = create((set, get) => ({
         contracts: buildContracts(signer),
         isConnecting: false,
       })
-      await Promise.allSettled([get().refreshDashboard(), get().loadJobs(), get().loadRewards()])
+      await Promise.allSettled([get().refreshDashboard(), get().loadJobs(), get().loadRewards(), get().loadAgentIdentity()])
     } catch (error) {
       set({ isConnecting: false, lastError: error.message })
       throw error
@@ -178,6 +201,7 @@ const useStore = create((set, get) => ({
       walletName: null,
       contracts: null,
       dashboard: { ...INITIAL_DASHBOARD },
+      agentIdentity: { ...INITIAL_AGENT_IDENTITY },
       rewardHistory: [],
       workRewards: [],
     }),
@@ -244,9 +268,9 @@ const useStore = create((set, get) => ({
       }
 
       if (address && provider && contracts) {
-        const [wlcBalance, koinBalance, stake, node, genesisTimestamp, epochDuration] = await Promise.all([
+        const [wlcBalance, missionKoinBalance, stake, node, genesisTimestamp, epochDuration] = await Promise.all([
           provider.getBalance(address),
-          readContracts.koin.balanceOf(address),
+          readContracts.missionKoin.balanceOf(address),
           readContracts.nodeStaking.getStake(address),
           readContracts.nodeReg.getNode(address),
           readContracts.nodeStaking.genesisTimestamp(),
@@ -274,7 +298,7 @@ const useStore = create((set, get) => ({
         }
 
         dashboard.wlcBalance = formatToken(wlcBalance)
-        dashboard.koinBalance = formatToken(koinBalance, 2)
+        dashboard.koinBalance = formatToken(missionKoinBalance, 2)
         dashboard.bondAmount = formatToken(stakeAmount)
         dashboard.bondStatus = bondStatus
         dashboard.bondReadyAt = bondReadyAt
@@ -288,6 +312,59 @@ const useStore = create((set, get) => ({
     } catch (error) {
       set({ isLoadingDashboard: false, lastError: error.message })
     }
+  },
+
+  loadAgentIdentity: async () => {
+    const { address, readContracts } = get()
+    if (!address) {
+      set({ agentIdentity: { ...INITIAL_AGENT_IDENTITY } })
+      return
+    }
+
+    if (!readContracts?.agentRegistry) {
+      set({
+        agentIdentity: {
+          ...INITIAL_AGENT_IDENTITY,
+          available: false,
+          owner: address,
+        },
+      })
+      return
+    }
+
+    try {
+      const agent = await readContracts.agentRegistry.getAgent(address)
+      set({
+        agentIdentity: {
+          available: true,
+          registered: Boolean(agent.registered),
+          identityRef: agent.registered ? agent.identityRef : null,
+          metadataURI: agent.metadataURI || "",
+          owner: agent.registered ? agent.owner : address,
+          pendingOwner: agent.pendingOwner === ethers.ZeroAddress ? null : agent.pendingOwner,
+          relinkNonce: Number(agent.relinkNonce || 0),
+        },
+      })
+    } catch (error) {
+      set({
+        agentIdentity: {
+          ...INITIAL_AGENT_IDENTITY,
+          available: true,
+          owner: address,
+        },
+        lastError: error.message,
+      })
+    }
+  },
+
+  lookupAgentIdentityOwner: async (identityRef) => {
+    const { readContracts } = get()
+    if (!identityRef || !readContracts?.agentRegistry) {
+      return null
+    }
+
+    const owner = await readContracts.agentRegistry.getOwnerForIdentity(identityRef)
+    return owner === ethers.ZeroAddress ? null : owner
   },
 
   loadJobs: async (limit = 20) => {
@@ -419,6 +496,7 @@ const useStore = create((set, get) => ({
           workRewards.push({
             jobId: job.id,
             role: "provider",
+            source: "mission",
             amount: job.rewardBreakdown.providerReward,
           })
         }
@@ -430,6 +508,7 @@ const useStore = create((set, get) => ({
               workRewards.push({
                 jobId: job.id,
                 role: "verifier",
+                source: "verification",
                 amount: job.rewardBreakdown.verifierRewardTotal / BigInt(job.recorded.verifierCount),
               })
             }
@@ -437,10 +516,11 @@ const useStore = create((set, get) => ({
         } catch {}
       }
 
+      const rewardSummary = summarizeMissionRewards(workRewards)
       const pendingActiveRewards = rewardHistory
         .filter((item) => item.activeAt && !item.claimed)
         .reduce((acc, item) => acc + item.estimatedActiveReward, 0n)
-      const pendingWorkRewards = workRewards.reduce((acc, item) => acc + item.amount, 0n)
+      const pendingWorkRewards = rewardSummary.missionTotal + rewardSummary.verificationTotal
 
       set((state) => ({
         rewardHistory,
@@ -449,6 +529,8 @@ const useStore = create((set, get) => ({
         dashboard: {
           ...state.dashboard,
           pendingActiveRewards: formatToken(pendingActiveRewards, 2),
+          pendingMissionRewards: formatToken(rewardSummary.missionTotal, 2),
+          pendingVerificationRewards: formatToken(rewardSummary.verificationTotal, 2),
           pendingWorkRewards: formatToken(pendingWorkRewards, 2),
         },
       }))
@@ -585,6 +667,30 @@ const useStore = create((set, get) => ({
         : await contracts.distributor.claimVerifierWorkReward(jobId)
     await tx.wait()
     await Promise.allSettled([get().refreshDashboard(), get().loadRewards(), get().loadJobs()])
+    return tx.hash
+  },
+
+  registerAgentIdentity: async ({ identityRef, metadataURI = "" }) => {
+    const { contracts } = get()
+    if (!contracts?.agentRegistry) {
+      throw new Error("Agent ID registry is not configured yet.")
+    }
+
+    const tx = await contracts.agentRegistry.registerAgent(identityRef, metadataURI)
+    await tx.wait()
+    await get().loadAgentIdentity()
+    return tx.hash
+  },
+
+  requestAgentIdentityRelink: async (newOwner) => {
+    const { contracts } = get()
+    if (!contracts?.agentRegistry) {
+      throw new Error("Agent ID registry is not configured yet.")
+    }
+
+    const tx = await contracts.agentRegistry.requestRelink(newOwner)
+    await tx.wait()
+    await get().loadAgentIdentity()
     return tx.hash
   },
 }))

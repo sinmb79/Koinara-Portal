@@ -20,6 +20,21 @@ export const AGENT_CATEGORIES = [
 
 export const PRICING_TIERS = ["basic", "standard", "premium"]
 
+export function buildAgentIdentitySnapshot(agentIdentity) {
+  if (!agentIdentity?.registered && !agentIdentity?.pendingOwner) {
+    return null
+  }
+
+  return {
+    registered: Boolean(agentIdentity?.registered),
+    identityRef: agentIdentity?.identityRef || null,
+    metadataURI: agentIdentity?.metadataURI || "",
+    owner: normalizeAddress(agentIdentity?.owner) || null,
+    pendingOwner: normalizeAddress(agentIdentity?.pendingOwner) || null,
+    relinkNonce: Number(agentIdentity?.relinkNonce || 0),
+  }
+}
+
 export const DEMO_AGENTS = [
   {
     address: "0x71C94bA3F63C6CE0A6FCE7B67bCA0bC79eaf93A2",
@@ -430,6 +445,7 @@ function buildLocalAgent(address, payload) {
     recentJobs: payload.recentJobs || [],
     signature: payload.signature || null,
     torqrTokenAddress: normalizeTorqrTokenAddress(payload.torqrTokenAddress),
+    identityRegistration: buildAgentIdentitySnapshot(payload.identityRegistration),
     updatedAt: payload.updatedAt || null,
   }
 }

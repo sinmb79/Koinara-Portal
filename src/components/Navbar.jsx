@@ -193,7 +193,7 @@ export default function Navbar() {
           </Link>
 
           <nav className="hidden min-w-0 items-center gap-4 xl:flex 2xl:gap-5">
-            {mainNavItems.map(([to, label]) => (
+            {mainNavItems.map(([to, label, meta]) => (
               <NavLink
                 key={to}
                 to={to}
@@ -202,6 +202,7 @@ export default function Navbar() {
                 }
               >
                 {label}
+                {meta?.legacy ? <span className="ml-1 rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-400">Legacy</span> : null}
               </NavLink>
             ))}
           </nav>
@@ -306,7 +307,7 @@ export default function Navbar() {
           <div className="mx-auto grid w-[min(1280px,calc(100vw-32px))] gap-4">
             <SearchBar placeholder={t("search_agents_placeholder")} compact />
             <div className="grid gap-2">
-              {[...mainNavItems, ...secondaryNavItems].map(([to, label]) => (
+              {[...mainNavItems, ...secondaryNavItems].map(([to, label, meta]) => (
                 <NavLink
                   key={`mobile-${to}`}
                   to={to}
@@ -316,6 +317,7 @@ export default function Navbar() {
                   onClick={() => setMobileOpen(false)}
                 >
                   {label}
+                  {meta?.legacy ? <span className="ml-2 rounded bg-amber-600/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-400">Legacy</span> : null}
                 </NavLink>
               ))}
             </div>

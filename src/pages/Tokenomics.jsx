@@ -1,17 +1,18 @@
 import { toast } from "react-hot-toast"
+import { Link } from "react-router-dom"
 import { BASE, WORLDLAND } from "../lib/chain.js"
 import { Button, StatusPill } from "../components/ui.jsx"
+import { WORLDLAND_KOIN_SURFACES } from "../lib/tokenSurfaces.js"
 
-const WORLDLAND_TOKEN = {
-  name: "Worldland KOIN",
+const WORLDLAND_OVERVIEW = {
+  name: "Worldland KOIN surfaces",
   short: "WL",
   chainId: 103,
-  token: "0x1d22f43A5105C9dc540DbC9F9d94E0CA4bF0Ec08",
-  summary: "Canonical protocol token. This is the official KOIN reference on Worldland.",
+  summary: "Worldland currently exposes multiple KOIN-linked contract surfaces across legacy node rewards, the public v3 portal, and the mission market flow.",
   notes: [
-    "This is the canonical KOIN users should treat as the protocol-native token.",
-    "Base is used for Mission Board testing and swap demo flows, not for canonical token semantics.",
-    "If an official external market is launched later, it should reference the canonical Worldland asset design.",
+    "Legacy node rewards use a v2 reward-token address that should not be confused with the mission market surface.",
+    "The public portal ABI currently points to a separate v3 KOIN reference address.",
+    "The mission-board and draft /swap market surface currently point to a separate Worldland KOIN address.",
   ],
 }
 
@@ -47,7 +48,7 @@ const CONTRACTS = {
     missionBoard: "0xBEeC6567e8eCB6a5D919F15312a8cAB73e3Bef55",
     collaborationManager: "0xBC2939f67142946331e5c2Bbb04CCC2AAe432CE4",
     verificationOracle: "0x28c3e8F3b441C3a1a797b39E5B4d8F9EFF4eF901",
-    koinToken: WORLDLAND_TOKEN.token,
+    koinToken: WORLDLAND_KOIN_SURFACES[2].address,
   },
   base: {
     missionBoard: "0xc1dfc5B92b4B5c7C5F2E33266C69B49520eDEE21",
@@ -60,13 +61,13 @@ const CONTRACTS = {
 
 const PRINCIPLES = [
   {
-    title: "Canonical on Worldland",
-    body: "Worldland KOIN is the official protocol token. Base MockKOIN exists only for demo and testing flows.",
+    title: "Split Worldland surfaces",
+    body: "Legacy node rewards, the public v3 portal, and the mission market currently reference different Worldland KOIN surfaces.",
     tone: "success",
   },
   {
-    title: "No Symbol Ambiguity",
-    body: "Every trading and address section now explicitly labels Base as demo/mock to reduce user confusion.",
+    title: "No forced equivalence",
+    body: "The portal now labels each Worldland KOIN surface by role instead of presenting one mission address as the single official token by default.",
     tone: "info",
   },
   {
@@ -77,7 +78,7 @@ const PRINCIPLES = [
 ]
 
 const CONTRACT_ROWS = [
-  { key: "koinToken", label: "KOIN Token" },
+  { key: "koinToken", label: "Mission / swap KOIN" },
   { key: "missionBoard", label: "MissionBoard" },
   { key: "collaborationManager", label: "CollaborationManager" },
   { key: "verificationOracle", label: "VerificationOracle" },
@@ -218,6 +219,47 @@ function TokenIdentityCard({ chainKey, token, accentTitle, warning }) {
   )
 }
 
+function WorldlandSurfaceCard() {
+  return (
+    <article className={`rounded-[30px] border p-6 ${CHAIN_META.worldland.cardClass}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <StatusPill tone={CHAIN_META.worldland.badgeTone}>{WORLDLAND_OVERVIEW.short}</StatusPill>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Chain ID {WORLDLAND_OVERVIEW.chainId}</span>
+          </div>
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-white">Worldland KOIN surfaces</h2>
+          <p className="mt-3 text-sm leading-7 text-slate-300">{WORLDLAND_OVERVIEW.summary}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-3xl border border-primary/12 bg-primary/5 p-4 text-sm leading-7 text-slate-200">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Important</div>
+        <p className="mt-2">
+          The Worldland KOIN labels below are public contract surfaces with different roles. Do not treat them as automatic synonyms.
+        </p>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {WORLDLAND_KOIN_SURFACES.map((surface) => (
+          <div key={surface.id} className="rounded-2xl border border-white/5 bg-black/10 px-4 py-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{surface.label}</div>
+            <a
+              href={explorerUrl("worldland", surface.address)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 block break-all font-mono text-sm leading-7 text-slate-100 transition hover:text-primary"
+            >
+              {surface.address}
+            </a>
+            <p className="mt-2 text-sm leading-7 text-slate-400">{surface.note}</p>
+          </div>
+        ))}
+      </div>
+    </article>
+  )
+}
+
 export default function Tokenomics() {
   return (
     <div className="page-shell py-8">
@@ -227,23 +269,23 @@ export default function Tokenomics() {
             <div className="text-xs font-semibold uppercase tracking-[0.26em] text-primary/80">Token Design</div>
             <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">KOIN Token Identity</h1>
             <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300 sm:text-base">
-              Worldland hosts the canonical KOIN token. Base hosts a separate MockKOIN deployment for Mission Board demos,
-              testing, and swap walkthroughs.
+              Worldland currently has multiple public KOIN-linked contract surfaces. Base hosts a separate MockKOIN deployment
+              for Mission Board demos, testing, and swap walkthroughs.
             </p>
             <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-400">
-              The current Uniswap pool on Base is tied to the mock token, not the canonical Worldland token. Users should not
-              treat the Base mock market as official protocol price discovery.
+              The current Uniswap pool on Base is tied to the mock token, not the legacy node reward token or the mission-market
+              surface on Worldland. Users should not treat the Base mock market as official protocol price discovery.
             </p>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <StatusPill tone="success">Canonical: Worldland KOIN</StatusPill>
+            <StatusPill tone="success">Worldland surfaces are split</StatusPill>
             <StatusPill tone="danger">Demo: Base MockKOIN</StatusPill>
             <StatusPill tone="warn">Uniswap pool is demo-only</StatusPill>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <InfoCard label="Official Network" value="Worldland Mainnet" />
+            <InfoCard label="Core Network" value="Worldland Mainnet" />
             <InfoCard label="Demo Trading Network" value="Base Mainnet" />
             <InfoCard label="Current Uniswap Status" value="Mock token only" />
           </div>
@@ -252,15 +294,11 @@ export default function Tokenomics() {
         <section className="space-y-4">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Identity Split</div>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Canonical token vs demo token</h2>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Worldland surfaces vs Base demo token</h2>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <TokenIdentityCard
-              chainKey="worldland"
-              token={WORLDLAND_TOKEN}
-              accentTitle="Worldland official KOIN"
-            />
+            <WorldlandSurfaceCard />
             <TokenIdentityCard
               chainKey="base"
               token={BASE_DEMO_TOKEN}
@@ -387,23 +425,29 @@ export default function Tokenomics() {
           </article>
 
           <article className="rounded-[30px] border border-white/8 bg-white/[0.03] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:p-8">
-            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Official token</div>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Worldland canonical address</h2>
+            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Worldland market surface</div>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Current mission / swap address</h2>
             <div className="mt-5 rounded-3xl border border-white/8 bg-black/15 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">KOIN on Worldland</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Mission / swap KOIN on Worldland</div>
               <a
-                href={explorerUrl("worldland", WORLDLAND_TOKEN.token)}
+                href={explorerUrl("worldland", WORLDLAND_KOIN_SURFACES[2].address)}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-3 block break-all font-mono text-sm leading-7 text-slate-200 transition hover:text-primary"
               >
-                {WORLDLAND_TOKEN.token}
+                {WORLDLAND_KOIN_SURFACES[2].address}
               </a>
             </div>
             <p className="mt-4 text-sm leading-7 text-slate-400">
-              If an official external market is launched later, it should map cleanly to the canonical Worldland token rather
-              than the current Base mock deployment.
+              The KOIN/WLC market page currently follows the mission-market surface and remains gated until the public market
+              address is finalized.
             </p>
+            <Link
+              to="/swap"
+              className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition hover:border-primary/40 hover:bg-primary/15"
+            >
+              Open KOIN/WLC market surface
+            </Link>
           </article>
         </section>
 

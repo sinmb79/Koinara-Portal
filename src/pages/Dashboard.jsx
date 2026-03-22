@@ -7,7 +7,7 @@ import { ADDRESSES } from "../abi/index.js"
 import { formatDateTime, formatTokenAmount } from "../lib/chain.js"
 import { getAgentFeePolicy, getPromoPhaseLabelKey } from "../lib/feeConfig.js"
 import { loadMyAgentService } from "../lib/agentCatalog.js"
-import { AddressLink, JobStatePill, JobTypePill, EmptyState, LoadingState, Notice } from "../components/ui.jsx"
+import { AddressLink, JobStatePill, JobTypePill, EmptyState, LoadingState, Notice, LegacyNotice } from "../components/ui.jsx"
 
 const DASHBOARD_CONTENT_TABS = ["overview", "jobs", "services", "nodes"]
 
@@ -21,13 +21,11 @@ export default function Dashboard() {
   usePolling(loadJobs, 25000, true)
   usePolling(loadRewards, 30000, Boolean(address))
 
-  const rewardNumber = Number.parseFloat(dashboard.pendingActiveRewards || "0") + Number.parseFloat(dashboard.pendingWorkRewards || "0")
+  const missionRewardNumber = Number.parseFloat(dashboard.pendingMissionRewards || "0")
+  const verificationRewardNumber = Number.parseFloat(dashboard.pendingVerificationRewards || "0")
   const activeJobs = jobs.filter((job) => [0, 1, 2, 3, 4].includes(job.state)).length
-  const onlineNodes = dashboard.activeNodeCount
-  const totalNodes = Math.max(onlineNodes, 1)
   const successRate = jobs.length ? ((jobs.filter((job) => job.state === 6).length / jobs.length) * 100).toFixed(1) : "100.0"
   const settledJobs = jobs.filter((job) => job.state === 6).length
-  const onlineRatio = totalNodes > 0 ? Math.round((onlineNodes / totalNodes) * 100) : 0
   const myAgentService = useMemo(() => (address ? loadMyAgentService(address) : null), [address])
   const roleLabelMap = {
     0: t("register_role_provider"),
@@ -68,21 +66,23 @@ export default function Dashboard() {
               {t("dashboard_tag")}
             </div>
             <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t("dashboard_hub_title")}</h1>
-            <p className="mt-4 text-lg leading-8 text-slate-300">{t("dashboard_hub_subtitle")}</p>
+            <p className="mt-4 text-lg leading-8 text-slate-300">{t("dashboard_subtitle_reboot")}</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link to="/dashboard/bond" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition hover:bg-primary/20">
-              {t("dashboard_action_bond")}
+            <Link to="/missions" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-black text-[#0b2019] transition hover:brightness-110">
+              {t("nav_missions")}
             </Link>
-            <Link to="/dashboard/register" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition hover:bg-primary/20">
-              {t("dashboard_action_register")}
+            <Link to="/dashboard/agent-id" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition hover:bg-primary/20">
+              {t("home_cta_register_agent")}
             </Link>
-            <Link to="/dashboard/rewards" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-black text-[#0b2019] transition hover:brightness-110">
-              {t("dashboard_action_rewards")}
+            <Link to="/dashboard/rewards" className="inline-flex h-11 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 text-sm font-bold text-amber-300 transition hover:bg-amber-500/15">
+              {t("reboot_legacy_operator")}
             </Link>
           </div>
         </div>
       </section>
+
+      <Notice>{t("dashboard_reboot_notice")}</Notice>
 
       <Notice>
         {t("agent_fee_policy_notice", {
@@ -97,21 +97,21 @@ export default function Dashboard() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon="payments"
-          label={t("dashboard_kpi_total_earnings")}
-          value={`${rewardNumber.toFixed(2)} KOIN`}
-          trend={t("dashboard_trend_jobs", { count: filteredMyJobs.length })}
+          label={t("dashboard_kpi_mission_rewards")}
+          value={`${missionRewardNumber.toFixed(2)} KOIN`}
+          trend={t("mission_verdict_driven")}
+        />
+        <KpiCard
+          icon="fact_check"
+          label={t("dashboard_kpi_verification_rewards")}
+          value={`${verificationRewardNumber.toFixed(2)} KOIN`}
+          trend="Verifier"
         />
         <KpiCard
           icon="work"
           label={t("dashboard_kpi_active_jobs")}
           value={String(activeJobs)}
           trend={t("dashboard_trend_tracked", { count: jobs.length })}
-        />
-        <KpiCard
-          icon="router"
-          label={t("dashboard_kpi_nodes_online")}
-          value={`${onlineNodes} / ${totalNodes}`}
-          trend={t("dashboard_trend_online", { percent: onlineRatio })}
         />
         <KpiCard
           icon="verified_user"
@@ -142,7 +142,7 @@ export default function Dashboard() {
       </div>
 
       {tab === "overview" ? (
-        <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr]">
+        <div className="dashboard-overview-layout">
           <section className="space-y-6">
             <PanelCard title={t("dashboard_overview_job_history")} action={(
               <button type="button" onClick={exportCsv} className="inline-flex h-9 items-center gap-2 rounded-xl border border-primary/15 px-3 text-xs font-bold text-slate-200 transition hover:bg-primary/10">
@@ -171,9 +171,12 @@ export default function Dashboard() {
           </section>
 
           <aside className="space-y-6">
-            <PanelCard title={t("dashboard_rewards_panel_title")}>
+            <LegacyNotice t={t} />
+
+            <PanelCard title={t("reboot_legacy_operator")}>
+              <Notice>{t("rewards_active_legacy_note")}</Notice>
               <div className="grid gap-4">
-                <ValueCard label={t("dashboard_kpi_active_rewards")} value={`${dashboard.pendingActiveRewards} KOIN`} />
+                <ValueCard label={t("dashboard_kpi_active_rewards_legacy")} value={`${dashboard.pendingActiveRewards} KOIN`} />
                 <ValueCard label={t("dashboard_kpi_bond")} value={`${dashboard.bondAmount} WLC`} />
               </div>
               <div className="mt-5 grid gap-3">
@@ -182,6 +185,9 @@ export default function Dashboard() {
                 </Link>
                 <Link to="/dashboard/bond" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 px-4 text-sm font-semibold text-primary transition hover:bg-primary/10">
                   {t("bond_title")}
+                </Link>
+                <Link to="/dashboard/register" className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 px-4 text-sm font-semibold text-primary transition hover:bg-primary/10">
+                  {t("dashboard_action_register")}
                 </Link>
               </div>
             </PanelCard>
@@ -215,7 +221,7 @@ export default function Dashboard() {
       {tab === "services" ? (
         <PanelCard title={t("dashboard_agent_services_title")} subtitle={t("dashboard_agent_services_subtitle")}>
           {myAgentService ? (
-            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="dashboard-services-layout">
               <div className="rounded-2xl border border-primary/15 bg-white/5 p-5">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{t("agent_register_service_name")}</div>
                 <h3 className="mt-2 text-2xl font-black text-white">{myAgentService.name || t("agent_register_preview_name")}</h3>
@@ -251,7 +257,7 @@ export default function Dashboard() {
       ) : null}
 
       {tab === "nodes" ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="dashboard-node-layout">
           <PanelCard title={t("dashboard_node_status")}>
             <div className="grid gap-4">
               <NodeValue label={t("dashboard_wallet")} value={address ? <AddressLink address={address} /> : t("common_connect_wallet")} />
