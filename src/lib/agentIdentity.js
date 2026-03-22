@@ -1,37 +1,33 @@
 import { ethers } from "ethers"
 
-export function extractAgentIdentityOwnerKeyId(response) {
-  return (
-    response?.owner_key_id ||
-    response?.owner?.key_id ||
-    response?.data?.owner_key_id ||
-    response?.data?.owner?.key_id ||
-    null
-  )
-}
+export function extractAILIdentity(response) {
+  const source =
+    response?.data?.credential ||
+    response?.credential ||
+    response?.data?.agent ||
+    response?.agent ||
+    response?.data ||
+    response
 
-export function extractAgentIdentitySessionToken(response) {
-  return (
-    response?.session_token ||
-    response?.session?.token ||
-    response?.data?.session_token ||
-    response?.data?.session?.token ||
-    null
-  )
-}
-
-export function extractAgentIdentityCredential(response) {
-  if (!response || typeof response !== "object") return null
-  if (response.ail_id || response.owner_key_id || response.credential_token || response.token) {
-    return response
+  if (!source || typeof source !== "object" || !source.ail_id) {
+    return null
   }
 
-  return response.credential || response.agent || response.data?.credential || response.data?.agent || null
+  return {
+    ail_id: String(source.ail_id),
+    display_name: String(source.display_name || "Koinara Agent"),
+    role: source.role ? String(source.role) : null,
+    owner_org: source.owner_org ? String(source.owner_org) : null,
+    reputation: source.reputation ?? null,
+    issued_at: source.issued_at || null,
+    expires_at: source.expires_at || null,
+  }
 }
 
 export function normalizeIdentityBinding({ credential, ownerWallet, metadataURI = "" }) {
   const normalizedOwner = ethers.getAddress(ownerWallet)
-  const ailId = String(credential?.ail_id || credential?.owner_key_id || "").trim()
+  const identity = extractAILIdentity(credential)
+  const ailId = String(identity?.ail_id || "").trim()
 
   if (!ailId) {
     throw new Error("Agent ID CARD credential is missing an identity reference.")
@@ -41,18 +37,10 @@ export function normalizeIdentityBinding({ credential, ownerWallet, metadataURI 
     identityRef: ethers.keccak256(ethers.toUtf8Bytes(ailId)),
     ailId,
     ownerWallet: normalizedOwner,
-    ownerKeyId: credential?.owner_key_id || null,
-    displayName: credential?.display_name || "Koinara Agent",
-    credentialToken: credential?.credential_token || credential?.token || null,
+    displayName: identity?.display_name || "Koinara Agent",
+    role: identity?.role || null,
+    ownerOrg: identity?.owner_org || null,
     metadataURI: String(metadataURI || "").trim(),
-  }
-}
-
-export function buildRegistrationPayload({ displayName, ownerWallet, role = "koinara_agent" }) {
-  return {
-    display_name: String(displayName || "").trim() || "Koinara Agent",
-    owner_wallet: ethers.getAddress(ownerWallet),
-    role,
   }
 }
 

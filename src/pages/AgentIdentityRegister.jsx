@@ -3,22 +3,27 @@ import { Link } from "react-router-dom"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
 import {
-  getSavedCredential,
-  ownerLogin,
-  ownerVerifyLogin,
-  registerAgentViaSession,
-  saveCredential,
+  AIL_BADGE_SCRIPT_URL,
+  AIL_WIDGET_SCRIPT_URL,
+  clearAILAuthState,
+  createAILAuthState,
+  getAgentProfileUrl,
+  getStoredAILCredential,
+  loadAILExternalScript,
+  openAILVerificationPopup,
+  saveAILAuthState,
+  storeAILCredential,
 } from "../lib/ail.js"
 import {
-  buildRegistrationPayload,
-  extractAgentIdentityCredential,
-  extractAgentIdentityOwnerKeyId,
-  extractAgentIdentitySessionToken,
+  extractAILIdentity,
   normalizeIdentityBinding,
   validateOwnerWalletMatch,
 } from "../lib/agentIdentity.js"
 import { Button, Notice, StatusPill } from "../components/ui.jsx"
 import { shortAddress } from "../lib/chain.js"
+
+const AIL_POPUP_SUCCESS = "ail:oauth-complete"
+const AIL_POPUP_ERROR = "ail:oauth-error"
 
 function shortHash(value, head = 10, tail = 8) {
   if (!value) return "-"
@@ -38,47 +43,89 @@ export default function AgentIdentityRegister() {
     requestAgentIdentityRelink,
   } = useStore()
   const t = useT(lang)
-  const [email, setEmail] = useState("")
-  const [ownerKeyId, setOwnerKeyId] = useState("")
-  const [otp, setOtp] = useState("")
-  const [displayName, setDisplayName] = useState("")
+
   const [metadataURI, setMetadataURI] = useState("")
-  const [sessionToken, setSessionToken] = useState("")
   const [credential, setCredential] = useState(null)
   const [existingOwner, setExistingOwner] = useState(null)
   const [relinkOwner, setRelinkOwner] = useState("")
   const [busyAction, setBusyAction] = useState("")
   const [message, setMessage] = useState("")
   const [messageTone, setMessageTone] = useState("info")
+  const [scriptsLoaded, setScriptsLoaded] = useState(false)
+  const [scriptError, setScriptError] = useState(false)
 
   useEffect(() => {
     if (!address) {
       setCredential(null)
-      setSessionToken("")
       setExistingOwner(null)
       return
     }
 
     void loadAgentIdentity()
 
-    const saved = getSavedCredential()
-    if (!saved) return
-    setCredential(saved)
-    setDisplayName((current) => current || saved.display_name || "Koinara Agent")
+    const saved = getStoredAILCredential()
+    if (saved) {
+      setCredential(saved)
+    }
   }, [address, loadAgentIdentity])
 
+  useEffect(() => {
+    let active = true
+
+    Promise.all([
+      loadAILExternalScript(AIL_WIDGET_SCRIPT_URL, { id: "ail-widget-script" }),
+      loadAILExternalScript(AIL_BADGE_SCRIPT_URL, { id: "ail-badge-script" }),
+    ])
+      .then(() => {
+        if (!active) return
+        setScriptsLoaded(true)
+      })
+      .catch(() => {
+        if (!active) return
+        setScriptError(true)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleMessage(event) {
+      if (event.origin !== window.location.origin) return
+      if (!event.data || typeof event.data !== "object") return
+
+      if (event.data.type === AIL_POPUP_SUCCESS && event.data.credential) {
+        const nextCredential = storeAILCredential(event.data.credential)
+        setCredential(nextCredential)
+        setMessageTone("success")
+        setMessage(t("agent_id_oauth_success"))
+      }
+
+      if (event.data.type === AIL_POPUP_ERROR) {
+        setMessageTone("error")
+        setMessage(event.data.error || t("agent_id_oauth_error"))
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [t])
+
+  const identity = useMemo(() => extractAILIdentity(credential), [credential])
+
   const binding = useMemo(() => {
-    if (!credential || !address) return null
+    if (!identity || !address) return null
     try {
       return normalizeIdentityBinding({
-        credential,
+        credential: identity,
         ownerWallet: address,
         metadataURI,
       })
     } catch {
       return null
     }
-  }, [address, credential, metadataURI])
+  }, [address, identity, metadataURI])
 
   const ownerMatch = useMemo(() => {
     if (!binding || !address) {
@@ -133,62 +180,30 @@ export default function AgentIdentityRegister() {
     setMessage(nextMessage)
   }
 
-  async function handleSendCode() {
-    await withAction("send-code", async () => {
-      const response = await ownerLogin(email.trim())
-      const nextOwnerKeyId = extractAgentIdentityOwnerKeyId(response)
-      if (!nextOwnerKeyId) {
-        throw new Error("Agent ID CARD did not return an owner key ID.")
-      }
-
-      setOwnerKeyId(nextOwnerKeyId)
-      setSuccess(t("agent_id_send_code_success"))
-    })
-  }
-
-  async function handleVerifySession() {
-    await withAction("verify-session", async () => {
-      const response = await ownerVerifyLogin(ownerKeyId.trim(), otp.trim())
-      const nextSessionToken = extractAgentIdentitySessionToken(response)
-      if (!nextSessionToken) {
-        throw new Error("Agent ID CARD did not return a session token.")
-      }
-
-      setSessionToken(nextSessionToken)
-      setSuccess(t("agent_id_session_ready"))
-    })
-  }
-
-  async function handlePrepareIdentity() {
-    await withAction("prepare-identity", async () => {
+  async function handleStartVerification() {
+    await withAction("open-oauth", async () => {
       if (!address) {
         throw new Error(t("common_wallet_required"))
       }
 
-      const payload = buildRegistrationPayload({
-        displayName,
-        ownerWallet: address,
-      })
-      const response = await registerAgentViaSession({
-        session_token: sessionToken.trim(),
-        payload,
-      })
-      const nextCredential = extractAgentIdentityCredential(response)
-      if (!nextCredential) {
-        throw new Error("Agent ID CARD did not return a credential payload.")
+      const state = createAILAuthState()
+      saveAILAuthState(state)
+
+      try {
+        openAILVerificationPopup({ state })
+      } catch {
+        clearAILAuthState()
+        throw new Error(t("agent_id_popup_blocked"))
       }
 
-      saveCredential(nextCredential)
-      setCredential(nextCredential)
-      setDisplayName((current) => current || nextCredential.display_name || "Koinara Agent")
-      setSuccess(t("agent_id_identity_ready"))
+      setSuccess(t("agent_id_popup_opened"))
     })
   }
 
   async function handleBindIdentity() {
     await withAction("bind-identity", async () => {
       if (!binding) {
-        throw new Error(t("agent_id_identity_ready"))
+        throw new Error(t("agent_id_identity_missing"))
       }
       if (!ownerMatch.valid) {
         throw new Error(ownerMatch.reason || t("agent_id_wallet_mismatch"))
@@ -215,16 +230,20 @@ export default function AgentIdentityRegister() {
   }
 
   const registryUnavailable = !agentIdentity.available
-  const canPrepareIdentity = Boolean(address && sessionToken)
+  const alreadyBoundElsewhere = Boolean(existingOwner && existingOwner.toLowerCase() !== address?.toLowerCase())
+  const alreadyBoundHere = Boolean(existingOwner && existingOwner.toLowerCase() === address?.toLowerCase())
   const canBindIdentity =
     Boolean(binding && address && agentIdentity.available) &&
-    (!existingOwner || existingOwner.toLowerCase() === address.toLowerCase()) &&
+    !alreadyBoundElsewhere &&
+    !alreadyBoundHere &&
     !agentIdentity.registered
 
   const statusLabel = agentIdentity.registered
     ? t("agent_id_status_verified")
     : binding
-      ? t("agent_id_status_ready")
+      ? alreadyBoundElsewhere
+        ? t("agent_id_status_pending")
+        : t("agent_id_status_ready")
       : agentIdentity.pendingOwner
         ? t("agent_id_status_pending")
         : t("agent_id_status_unlinked")
@@ -244,6 +263,7 @@ export default function AgentIdentityRegister() {
 
       {!address ? <Notice>{t("agent_id_connect_wallet_notice")}</Notice> : null}
       {registryUnavailable ? <Notice>{t("agent_id_unavailable")}</Notice> : null}
+      {scriptError ? <Notice>{t("agent_id_widget_unavailable")}</Notice> : null}
       {message ? (
         <div className={`rounded-2xl border px-4 py-3 text-sm ${
           messageTone === "success"
@@ -258,121 +278,96 @@ export default function AgentIdentityRegister() {
         <section className="space-y-6">
           <StepCard
             step="01"
-            title={t("agent_id_email_label")}
+            title={t("agent_id_verify_with_card")}
             subtitle={t("agent_id_step_auth_body")}
-            status={ownerKeyId ? t("agent_id_status_verified") : t("agent_id_status_unlinked")}
-            tone={ownerKeyId ? "success" : "dim"}
+            status={identity ? t("agent_id_status_verified") : t("agent_id_status_unlinked")}
+            tone={identity ? "success" : "dim"}
           >
-            <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_email_label")}</span>
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  placeholder="name@example.com"
-                />
-              </label>
-              <div className="flex items-end">
-                <Button
-                  variant="primary"
-                  loading={busyAction === "send-code"}
-                  disabled={!email.trim()}
-                  onClick={handleSendCode}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="primary"
+                loading={busyAction === "open-oauth"}
+                disabled={!address}
+                onClick={handleStartVerification}
+              >
+                {t("agent_id_verify_with_card")}
+              </Button>
+              {scriptsLoaded ? <StatusPill tone="success">{t("agent_id_widget_ready")}</StatusPill> : null}
+              {identity ? (
+                <a
+                  href={getAgentProfileUrl(identity.ail_id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:border-primary/30 hover:text-primary"
                 >
-                  {t("agent_id_send_code")}
-                </Button>
-              </div>
+                  {t("agent_id_open_profile")}
+                </a>
+              ) : null}
             </div>
-            <label className="mt-4 block">
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_owner_key_label")}</span>
-              <input
-                value={ownerKeyId}
-                onChange={(event) => setOwnerKeyId(event.target.value)}
-                className="h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                placeholder="owk_..."
-              />
-            </label>
           </StepCard>
 
           <StepCard
             step="02"
-            title={t("agent_id_verify_session")}
-            subtitle={t("agent_id_step_verify_body")}
-            status={sessionToken ? t("agent_id_status_verified") : t("agent_id_status_unlinked")}
-            tone={sessionToken ? "success" : "dim"}
-          >
-            <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_otp_label")}</span>
-                <input
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  placeholder="123456"
-                />
-              </label>
-              <div className="flex items-end">
-                <Button
-                  variant="primary"
-                  loading={busyAction === "verify-session"}
-                  disabled={!ownerKeyId.trim() || !otp.trim()}
-                  onClick={handleVerifySession}
-                >
-                  {t("agent_id_verify_session")}
-                </Button>
-              </div>
-            </div>
-          </StepCard>
-
-          <StepCard
-            step="03"
-            title={t("agent_id_prepare_identity")}
+            title={t("agent_id_identity_ready")}
             subtitle={t("agent_id_step_prepare_body")}
             status={binding ? t("agent_id_status_ready") : t("agent_id_status_unlinked")}
             tone={binding ? "info" : "dim"}
           >
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_display_name")}</span>
-                <input
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  placeholder="Koinara Agent"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_metadata_uri")}</span>
-                <input
-                  value={metadataURI}
-                  onChange={(event) => setMetadataURI(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  placeholder="ipfs://..."
-                />
-              </label>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button
-                variant="primary"
-                loading={busyAction === "prepare-identity"}
-                disabled={!canPrepareIdentity}
-                onClick={handlePrepareIdentity}
-              >
-                {t("agent_id_prepare_identity")}
-              </Button>
-              {credential ? <StatusPill tone="success">{t("agent_id_verification_saved")}</StatusPill> : null}
-            </div>
+            {identity ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-primary/10 bg-[#10261f]/90 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_profile_badge")}</div>
+                      <div className="mt-2 text-2xl font-black text-white">{identity.display_name}</div>
+                      <div className="mt-2 text-sm text-slate-400">
+                        {identity.ail_id}
+                        {identity.role ? ` · ${identity.role}` : ""}
+                        {identity.owner_org ? ` · ${identity.owner_org}` : ""}
+                      </div>
+                    </div>
+                    <div className="min-h-[48px] min-w-[220px] rounded-xl border border-white/5 bg-black/10 p-3">
+                      <div data-ail-id={identity.ail_id} data-ail-badge className="ail-badge" />
+                    </div>
+                  </div>
+                </div>
+                <StatusPill tone="success">{t("agent_id_verification_saved")}</StatusPill>
+              </div>
+            ) : (
+              <Notice>{t("agent_id_identity_missing")}</Notice>
+            )}
           </StepCard>
 
           <StepCard
-            step="04"
+            step="03"
             title={t("agent_id_register")}
             subtitle={t("agent_id_step_bind_body")}
-            status={agentIdentity.registered ? t("agent_id_status_verified") : t("agent_id_status_unlinked")}
-            tone={agentIdentity.registered ? "success" : "dim"}
+            status={agentIdentity.registered || alreadyBoundHere ? t("agent_id_status_verified") : t("agent_id_status_unlinked")}
+            tone={agentIdentity.registered || alreadyBoundHere ? "success" : "dim"}
           >
-            <div className="flex flex-wrap items-center gap-3">
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("agent_id_metadata_uri")}</span>
+              <input
+                value={metadataURI}
+                onChange={(event) => setMetadataURI(event.target.value)}
+                className="h-11 w-full rounded-xl border border-primary/10 bg-[#10261f]/90 px-4 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                placeholder="ipfs://..."
+              />
+            </label>
+
+            {alreadyBoundElsewhere ? (
+              <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                {t("agent_id_claimed_elsewhere")}
+              </div>
+            ) : null}
+
+            {alreadyBoundHere || agentIdentity.registered ? (
+              <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+                {t("agent_id_registered_body")}
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button
                 variant="primary"
                 loading={busyAction === "bind-identity"}
@@ -402,7 +397,7 @@ export default function AgentIdentityRegister() {
 
           <SummaryCard title={t("agent_id_registered_title")}>
             <p className="text-sm leading-7 text-slate-300">
-              {agentIdentity.registered ? t("agent_id_registered_body") : t("agent_id_identity_ready")}
+              {agentIdentity.registered || alreadyBoundHere ? t("agent_id_registered_body") : t("agent_id_identity_ready")}
             </p>
             {agentIdentity.pendingOwner ? (
               <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">

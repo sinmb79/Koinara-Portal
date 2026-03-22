@@ -62,3 +62,10 @@ test("connected desktop navbar hides the compact search to prevent crowding", ()
     showSearch: true,
   })
 })
+
+test("getMainNavItems exposes the swap route only once", () => {
+  const items = getMainNavItems(t)
+  const swapItems = items.filter(([href]) => href === "/swap")
+
+  assert.equal(swapItems.length, 1)
+})

@@ -1707,6 +1707,46 @@ Object.assign(translations.ko, {
   nav_swap: "Swap",
 })
 
+Object.assign(translations.en, {
+  agent_id_step_auth_body: "Open the hosted Agent ID CARD popup, approve the OAuth verification flow, and return to this page with an auth code.",
+  agent_id_step_verify_body: "Legacy OTP flow has been removed. Agent ID CARD verification now runs through the hosted OAuth popup.",
+  agent_id_step_prepare_body: "Review the returned Agent ID CARD identity, confirm the canonical owner wallet, and keep the local credential for future mission claims.",
+  agent_id_verify_with_card: "Verify with Agent ID CARD",
+  agent_id_widget_ready: "Hosted popup ready",
+  agent_id_widget_unavailable: "Agent ID CARD widget failed to load. You can still retry, but the hosted popup may be temporarily unavailable.",
+  agent_id_oauth_success: "Agent ID CARD verification completed. Review the credential and finish on-chain binding if needed.",
+  agent_id_oauth_error: "Agent ID CARD verification failed. Please retry from the registration page.",
+  agent_id_popup_opened: "Agent ID CARD popup opened. Complete verification in the popup and return here automatically.",
+  agent_id_popup_blocked: "The browser blocked the Agent ID CARD popup. Allow popups for this site and try again.",
+  agent_id_open_profile: "Open public Agent ID CARD profile",
+  agent_id_identity_missing: "Run Agent ID CARD verification first. The on-chain binding step unlocks after a valid ail_id is stored locally.",
+  agent_id_callback_title: "Agent ID CARD callback",
+  agent_id_callback_processing: "Finishing Agent ID CARD verification...",
+  agent_id_callback_missing_code: "Agent ID CARD callback did not include an auth code.",
+  agent_id_state_mismatch: "Agent ID CARD state check failed. Restart verification from the registration page.",
+  agent_id_return_to_register: "Return to Agent ID CARD registration",
+})
+
+Object.assign(translations.ko, {
+  agent_id_step_auth_body: "호스팅된 Agent ID CARD 팝업을 열고 OAuth 검증을 완료한 뒤, auth code와 함께 이 페이지로 돌아옵니다.",
+  agent_id_step_verify_body: "기존 OTP 흐름은 제거되었습니다. 이제 Agent ID CARD 검증은 호스팅된 OAuth 팝업으로 진행됩니다.",
+  agent_id_step_prepare_body: "반환된 Agent ID CARD 신원을 검토하고, canonical owner wallet을 확인한 뒤 이후 미션 클레임에 사용할 로컬 credential을 저장합니다.",
+  agent_id_verify_with_card: "Agent ID CARD로 검증",
+  agent_id_widget_ready: "호스팅 팝업 준비 완료",
+  agent_id_widget_unavailable: "Agent ID CARD 위젯을 불러오지 못했습니다. 다시 시도할 수 있지만, 호스팅 팝업이 일시적으로 불안정할 수 있습니다.",
+  agent_id_oauth_success: "Agent ID CARD 검증이 완료되었습니다. credential을 확인하고 필요하면 온체인 바인딩을 마무리하세요.",
+  agent_id_oauth_error: "Agent ID CARD 검증에 실패했습니다. 등록 페이지에서 다시 시도하세요.",
+  agent_id_popup_opened: "Agent ID CARD 팝업이 열렸습니다. 팝업에서 검증을 완료하면 이 페이지로 자동 반영됩니다.",
+  agent_id_popup_blocked: "브라우저가 Agent ID CARD 팝업을 차단했습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.",
+  agent_id_open_profile: "공개 Agent ID CARD 프로필 열기",
+  agent_id_identity_missing: "먼저 Agent ID CARD 검증을 완료하세요. 유효한 ail_id가 로컬에 저장되어야 온체인 바인딩이 열립니다.",
+  agent_id_callback_title: "Agent ID CARD 콜백",
+  agent_id_callback_processing: "Agent ID CARD 검증을 마무리하는 중...",
+  agent_id_callback_missing_code: "Agent ID CARD 콜백에 auth code가 포함되지 않았습니다.",
+  agent_id_state_mismatch: "Agent ID CARD state 검증에 실패했습니다. 등록 페이지에서 다시 시작하세요.",
+  agent_id_return_to_register: "Agent ID CARD 등록으로 돌아가기",
+})
+
 export function useT(lang) {
   return (key, vars) => {
     const catalog = translations[lang] || translations.en
