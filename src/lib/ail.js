@@ -1,129 +1,285 @@
-/**
- * AIL (Agent Identity Layer) — agentidcard.org API integration
- * https://api.agentidcard.org
- *
- * Endpoints used:
- *   POST /owners/login            → sends OTP to owner email
- *   POST /owners/verify-login     → returns session_token
- *   POST /agents/register         → returns ail_id + JWT credential
- *   POST /verify                  → online credential verification
- *   GET  /keys                    → public keys for offline verification
- */
+import { ethers } from "ethers"
 
-const AIL_API = "https://api.agentidcard.org"
+export const AIL_API = "https://api.agentidcard.org"
+export const AIL_WIDGET_SCRIPT_URL = `${AIL_API}/widget.js`
+export const AIL_BADGE_SCRIPT_URL = `${AIL_API}/badge.js`
+export const DEFAULT_AIL_CLIENT_ID = "ail_client_4fd5181b1f754362a99a75596b41b593"
+export const PROD_AIL_REDIRECT_URI = "https://koinara.xyz/callback"
+export const DEV_AIL_REDIRECT_URI = "http://localhost:5173/callback"
 
-// ─── Koinara Mission Board Agent Credential ──────────────────
-// Issued via AIL register-session for on-chain mission verification
-export const KOINARA_AGENT = {
-  ail_id: "AIL-2026-00003",
-  display_name: "Koinara-MissionBoard",
-  role: "mission_verifier",
-  credential_token: "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIyYmxhYnMtbWFzdGVyLTIwMjYifQ.eyJhaWxfaWQiOiJBSUwtMjAyNi0wMDAwMyIsImRpc3BsYXlfbmFtZSI6IktvaW5hcmEtTWlzc2lvbkJvYXJkIiwicm9sZSI6Im1pc3Npb25fdmVyaWZpZXIiLCJvd25lcl9rZXlfaWQiOiJvd2tfZjBiZTBhY2FlMTc1YTgyNjdjYWE4NDA3Iiwib3duZXJfb3JnIjpudWxsLCJzY29wZV9oYXNoIjoic2hhMjU2OjA1OTFlOWIwYmE1MzBlNWU3ZmVmZjY4OTRkZDVmMmUyOWM3ZjViZmQ2ZjRhMzk4ZmI1NDE1YTc0YTJjMTY2NWQiLCJzaWduYWxfZ2x5cGhfc2VlZCI6IkFJTC0yMDI2LTAwMDAzOktvaW5hcmEtTWlzc2lvbkJvYXJkOm93a19mMGJlMGFjYWUxNzVhODI2N2NhYTg0MDciLCJiZWhhdmlvcl9maW5nZXJwcmludCI6InNoYTI1Njo5OTk3YWNlZjU1Y2M1ZDI4NjZhMjIwMzJkOGJjZTA0OWVlMGExOGEwOThjZDgyNGQwMmJhYWVlNGZkYTUzMGEzIiwiaXNzIjoiMjJibGFicy5haSIsInN1YiI6IkFJTC0yMDI2LTAwMDAzIiwiaWF0IjoxNzczODI4OTA4LCJleHAiOjE4MDUzNjQ5MDh9.wKM9rfKOtmMh6bYNqglC9ZF4I74uH7xqAklo4v-2h-GeR5SItsifEJXQKRDWWBqeMUCA6HytoVwZJ7H4jR5vfw",
-  issued_at: "2026-03-18T10:15:08.884Z",
-  expires_at: "2027-03-18T10:15:08.884Z",
-}
+const AIL_CREDENTIAL_STORAGE_KEY = "ail_credential"
+const AIL_AUTH_STATE_STORAGE_KEY = "ail_oauth_state"
 
-// ─── Owner Login ──────────────────────────────────────────────
-
-export async function ownerLogin(email) {
-  const res = await fetch(`${AIL_API}/owners/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  })
-  return res.json()
-}
-
-export async function ownerVerifyLogin(owner_key_id, otp) {
-  const res = await fetch(`${AIL_API}/owners/verify-login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ owner_key_id, otp }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.message || `Login verify failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-// ─── Agent Registration ───────────────────────────────────────
-
-export async function registerAgent({ owner_key_id, payload, owner_signature }) {
-  const res = await fetch(`${AIL_API}/agents/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ owner_key_id, payload, owner_signature }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.message || `Agent registration failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-export async function registerAgentViaSession({ session_token, payload }) {
-  const res = await fetch(`${AIL_API}/agents/register-session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_token, payload }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.message || `Session registration failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-// ─── Verification ─────────────────────────────────────────────
-
-export async function verifyCredential(token) {
-  const res = await fetch(`${AIL_API}/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.message || `Verify failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-// ─── Local Credential Storage ─────────────────────────────────
-
-const STORAGE_KEY = "ail_credential"
-
-export function getSavedCredential() {
+function getImportMetaEnv() {
   try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    if (!data) return null
-    const parsed = JSON.parse(data)
-    if (parsed.expires_at && new Date(parsed.expires_at) < new Date()) {
-      localStorage.removeItem(STORAGE_KEY)
-      return null
-    }
-    return parsed
+    return import.meta?.env || {}
+  } catch {
+    return {}
+  }
+}
+
+function resolveStorage(storage, globalStorage) {
+  if (storage) return storage
+  if (typeof globalStorage !== "undefined") return globalStorage
+  return null
+}
+
+function safeParseJSON(value) {
+  try {
+    return JSON.parse(value)
   } catch {
     return null
   }
 }
 
-export function saveCredential(credential) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(credential))
+export function getAILClientId(env = getImportMetaEnv()) {
+  return env?.VITE_AIL_CLIENT_ID || DEFAULT_AIL_CLIENT_ID
 }
 
-export function clearCredential() {
-  localStorage.removeItem(STORAGE_KEY)
+export function getAILRedirectUri({ isProd = Boolean(getImportMetaEnv().PROD) } = {}) {
+  return isProd ? PROD_AIL_REDIRECT_URI : DEV_AIL_REDIRECT_URI
 }
 
-// ─── On-chain encoding ────────────────────────────────────────
+export function getAILWidgetConfig({
+  isProd = Boolean(getImportMetaEnv().PROD),
+  clientId = getAILClientId(),
+  scope = "identity",
+} = {}) {
+  return {
+    clientId,
+    redirectUri: getAILRedirectUri({ isProd }),
+    scope,
+    widgetScriptUrl: AIL_WIDGET_SCRIPT_URL,
+    badgeScriptUrl: AIL_BADGE_SCRIPT_URL,
+  }
+}
+
+export function buildAILVerifyUrl({
+  clientId,
+  redirectUri,
+  scope = "identity",
+  state,
+  baseUrl = AIL_API,
+}) {
+  const params = new URLSearchParams()
+  params.append("client_id", clientId)
+  params.append("redirect_uri", redirectUri)
+  params.append("scope", scope)
+  if (state) {
+    params.append("state", state)
+  }
+  return `${baseUrl}/auth/verify?${params.toString()}`
+}
+
+export function createAILAuthState(randomUUID = globalThis.crypto?.randomUUID?.bind(globalThis.crypto)) {
+  if (typeof randomUUID === "function") {
+    return randomUUID()
+  }
+  return `ail_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`
+}
+
+export function saveAILAuthState(state, storage = resolveStorage(null, globalThis.sessionStorage)) {
+  if (!storage) return
+  storage.setItem(AIL_AUTH_STATE_STORAGE_KEY, String(state))
+}
+
+export function getAILAuthState(storage = resolveStorage(null, globalThis.sessionStorage)) {
+  if (!storage) return null
+  return storage.getItem(AIL_AUTH_STATE_STORAGE_KEY)
+}
+
+export function clearAILAuthState(storage = resolveStorage(null, globalThis.sessionStorage)) {
+  if (!storage) return
+  storage.removeItem(AIL_AUTH_STATE_STORAGE_KEY)
+}
+
+export function isLegacyAILCredential(value) {
+  if (!value || typeof value !== "object") return false
+  return Boolean(
+    value.session_token ||
+    value.owner_key_id ||
+    value.credential_token ||
+    (value.token && !value.ail_id),
+  )
+}
+
+export function normalizeAILCredential(value) {
+  if (!value || typeof value !== "object") return null
+
+  const source =
+    value?.data?.credential ||
+    value?.credential ||
+    value?.data ||
+    value
+
+  if (!source?.ail_id) {
+    return null
+  }
+
+  return {
+    ail_id: String(source.ail_id),
+    display_name: String(source.display_name || "Koinara Agent"),
+    role: source.role ? String(source.role) : null,
+    owner_org: source.owner_org ? String(source.owner_org) : null,
+    reputation: source.reputation ?? null,
+    issued_at: source.issued_at || null,
+    expires_at: source.expires_at || null,
+    verified_at: Number(source.verified_at ?? Date.now()),
+  }
+}
+
+export function isAILCredentialExpired(credential, now = Date.now()) {
+  if (!credential?.expires_at) return false
+  const expiresAt = new Date(credential.expires_at).getTime()
+  if (!Number.isFinite(expiresAt)) return false
+  return expiresAt <= now
+}
+
+export function getStoredAILCredential(storage = resolveStorage(null, globalThis.localStorage)) {
+  if (!storage) return null
+  const raw = storage.getItem(AIL_CREDENTIAL_STORAGE_KEY)
+  if (!raw) return null
+
+  const parsed = safeParseJSON(raw)
+  if (!parsed || isLegacyAILCredential(parsed)) {
+    storage.removeItem(AIL_CREDENTIAL_STORAGE_KEY)
+    return null
+  }
+
+  const normalized = normalizeAILCredential(parsed)
+  if (!normalized || isAILCredentialExpired(normalized)) {
+    storage.removeItem(AIL_CREDENTIAL_STORAGE_KEY)
+    return null
+  }
+
+  return normalized
+}
+
+export function storeAILCredential(credential, storage = resolveStorage(null, globalThis.localStorage)) {
+  if (!storage) {
+    throw new Error("Browser storage is unavailable for Agent ID CARD credentials.")
+  }
+  const normalized = normalizeAILCredential(credential)
+  if (!normalized) {
+    throw new Error("Agent ID CARD credential is missing ail_id.")
+  }
+  storage.setItem(AIL_CREDENTIAL_STORAGE_KEY, JSON.stringify(normalized))
+  return normalized
+}
+
+export function clearAILCredential(storage = resolveStorage(null, globalThis.localStorage)) {
+  if (!storage) return
+  storage.removeItem(AIL_CREDENTIAL_STORAGE_KEY)
+}
+
+export async function exchangeAuthCode(
+  code,
+  {
+    state = null,
+    redirectUri = getAILWidgetConfig().redirectUri,
+    fetchImpl = globalThis.fetch?.bind(globalThis),
+  } = {},
+) {
+  if (!code) {
+    throw new Error("Agent ID CARD auth code is required.")
+  }
+  if (typeof fetchImpl !== "function") {
+    throw new Error("Fetch is unavailable for Agent ID CARD exchange.")
+  }
+
+  const response = await fetchImpl("/api/ail-exchange", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code,
+      state,
+      redirect_uri: redirectUri,
+    }),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(payload.error || payload.message || `Exchange failed: ${response.status}`)
+  }
+
+  const credential = normalizeAILCredential(payload)
+  if (!credential) {
+    throw new Error("Agent ID CARD exchange returned an invalid credential payload.")
+  }
+  return credential
+}
+
+export async function fetchJWKS({ fetchImpl = globalThis.fetch?.bind(globalThis) } = {}) {
+  if (typeof fetchImpl !== "function") {
+    throw new Error("Fetch is unavailable for Agent ID CARD JWKS lookup.")
+  }
+  const response = await fetchImpl(`${AIL_API}/keys`)
+  if (!response.ok) {
+    throw new Error(`JWKS fetch failed: ${response.status}`)
+  }
+  return response.json()
+}
+
+export function loadAILExternalScript(src, { documentRef = globalThis.document, id = null } = {}) {
+  if (!documentRef) {
+    return Promise.resolve(null)
+  }
+
+  if (id) {
+    const existing = documentRef.getElementById(id)
+    if (existing) {
+      return Promise.resolve(existing)
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = documentRef.createElement("script")
+    script.src = src
+    script.async = true
+    if (id) {
+      script.id = id
+    }
+    script.onload = () => resolve(script)
+    script.onerror = () => reject(new Error(`Failed to load ${src}`))
+    documentRef.head.appendChild(script)
+  })
+}
+
+export function openAILVerificationPopup({
+  state,
+  scope = "identity",
+  windowRef = globalThis.window,
+  popupName = "ail-oauth",
+} = {}) {
+  const config = getAILWidgetConfig({ scope })
+  const url = buildAILVerifyUrl({
+    clientId: config.clientId,
+    redirectUri: config.redirectUri,
+    scope: config.scope,
+    state,
+  })
+
+  const popup = windowRef?.open(
+    url,
+    popupName,
+    "popup=yes,width=520,height=760,resizable=yes,scrollbars=yes",
+  )
+
+  if (!popup) {
+    throw new Error("Agent ID CARD popup was blocked.")
+  }
+
+  popup.focus?.()
+  return popup
+}
+
+export function getAgentProfileUrl(ailId) {
+  return `https://agentidcard.org/agent/${ailId}`
+}
 
 /**
- * Encode credential for on-chain submission to MockAILVerifier
- * MockAILVerifier.verifyCredential expects bytes that decode to (address, bytes32)
- *
- * In production: would pass JWT token bytes for on-chain verification
+ * Encode credential for on-chain submission to MockAILVerifier.
+ * MockAILVerifier.verifyCredential expects bytes that decode to (address, bytes32).
  */
 export function encodeCredentialForChain(walletAddress) {
   const cleanAddr = walletAddress.toLowerCase().replace("0x", "")
@@ -132,14 +288,26 @@ export function encodeCredentialForChain(walletAddress) {
 
 export default {
   AIL_API,
-  KOINARA_AGENT,
-  ownerLogin,
-  ownerVerifyLogin,
-  registerAgent,
-  registerAgentViaSession,
-  verifyCredential,
-  getSavedCredential,
-  saveCredential,
-  clearCredential,
+  AIL_WIDGET_SCRIPT_URL,
+  AIL_BADGE_SCRIPT_URL,
+  DEFAULT_AIL_CLIENT_ID,
+  getAILClientId,
+  getAILRedirectUri,
+  getAILWidgetConfig,
+  buildAILVerifyUrl,
+  createAILAuthState,
+  saveAILAuthState,
+  getAILAuthState,
+  clearAILAuthState,
+  isLegacyAILCredential,
+  normalizeAILCredential,
+  getStoredAILCredential,
+  storeAILCredential,
+  clearAILCredential,
+  exchangeAuthCode,
+  fetchJWKS,
+  loadAILExternalScript,
+  openAILVerificationPopup,
+  getAgentProfileUrl,
   encodeCredentialForChain,
 }

@@ -14,6 +14,7 @@ const EcosystemHome = lazy(() => import("./pages/EcosystemHome.jsx"))
 const Guide = lazy(() => import("./pages/Guide.jsx"))
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"))
 const AgentIdentityRegister = lazy(() => import("./pages/AgentIdentityRegister.jsx"))
+const AILCallback = lazy(() => import("./pages/AILCallback.jsx"))
 const JobExplorer = lazy(() => import("./pages/JobExplorer.jsx"))
 const CreateJob = lazy(() => import("./pages/CreateJob.jsx"))
 const JobDetail = lazy(() => import("./pages/JobDetail.jsx"))
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/providers" element={<Providers />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/agent-id" element={<AgentIdentityRegister />} />
+        <Route path="/callback" element={<AILCallback />} />
         <Route path="/dashboard/agent-service" element={<AgentServiceRegister />} />
         <Route path="/dashboard/bond" element={<NodeBond />} />
         <Route path="/dashboard/register" element={<NodeRegister />} />

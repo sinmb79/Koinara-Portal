@@ -12,11 +12,9 @@ import useStore from "../lib/store.js"
 import { Button, StatusPill, LoadingState } from "../components/ui.jsx"
 import MISSION_METADATA, { CLOSED_MISSIONS } from "../data/missionMetadata.js"
 import {
-  getSavedCredential,
-  saveCredential,
-  verifyCredential,
   encodeCredentialForChain,
-  KOINARA_AGENT,
+  getAgentProfileUrl,
+  getStoredAILCredential,
 } from "../lib/ail.js"
 import {
   getMissionParticipationState,
@@ -103,10 +101,7 @@ export default function MissionDetail() {
   const [claiming, setClaiming] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [reportHash, setReportHash] = useState("")
-  const [ailCredential, setAilCredential] = useState(() => getSavedCredential())
-  const [ailTokenInput, setAilTokenInput] = useState("")
-  const [ailVerifying, setAilVerifying] = useState(false)
-  const [ailError, setAilError] = useState("")
+  const [ailCredential, setAilCredential] = useState(() => getStoredAILCredential())
 
   const provider = new ethers.JsonRpcProvider(chainConfig.chain.rpcUrls[0])
   const missionBoardRead = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, provider)
@@ -114,12 +109,13 @@ export default function MissionDetail() {
 
   useEffect(() => {
     loadMission()
+    setAilCredential(getStoredAILCredential())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, chainKey])
 
   useEffect(() => {
     if (address && mission) {
-      checkParticipant()
+      void checkParticipant()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, mission])
@@ -192,38 +188,9 @@ export default function MissionDetail() {
     }
   }
 
-  async function handleVerifyAil() {
-    if (!ailTokenInput.trim()) return
-
-    setAilVerifying(true)
-    setAilError("")
-
-    try {
-      const result = await verifyCredential(ailTokenInput.trim())
-      if (!result.valid) {
-        setAilError(`Invalid credential: ${result.reason || "verification failed"}`)
-        return
-      }
-
-      const credential = {
-        token: ailTokenInput.trim(),
-        ail_id: result.ail_id,
-        display_name: result.display_name,
-        owner_org: result.owner_org,
-      }
-      saveCredential(credential)
-      setAilCredential(credential)
-      setAilTokenInput("")
-    } catch (error) {
-      setAilError(error.message)
-    } finally {
-      setAilVerifying(false)
-    }
-  }
-
   async function handleClaim() {
     if (!signer) return
-    if (!ailCredential?.token) {
+    if (!ailCredential?.ail_id) {
       alert("Agent ID CARD credential required. Please verify your Agent ID CARD first.")
       return
     }
@@ -231,16 +198,6 @@ export default function MissionDetail() {
     setClaiming(true)
 
     try {
-      const verification = await verifyCredential(ailCredential.token)
-      if (!verification.valid) {
-        alert(`Agent ID CARD verification failed: ${verification.reason || "invalid credential"}`)
-        return
-      }
-      if (verification.revoked) {
-        alert("This Agent ID CARD credential has been revoked.")
-        return
-      }
-
       const missionBoard = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
       const credential = encodeCredentialForChain(address)
       const tx = await missionBoard.claimMission(id, credential)
@@ -306,6 +263,7 @@ export default function MissionDetail() {
     missionStatus: normalizedStatus,
   })
   const showClaimPanel = !isClosed && Boolean(address) && !isParticipant && ["OPEN", "IN_PROGRESS"].includes(normalizedStatus)
+  const canClaim = participationState.canClaim
   const canSubmit = !isClosed && participationState.canSubmit
   const verifierTrustLabel = getVerifierTrustLabel("proova")
   const participationCopy = PARTICIPATION_COPY[participationState.statusKey] || PARTICIPATION_COPY.disconnected
@@ -434,61 +392,36 @@ export default function MissionDetail() {
                 {ailCredential.display_name}
                 {ailCredential.owner_org ? ` · ${ailCredential.owner_org}` : ""}
               </p>
+              <a
+                href={getAgentProfileUrl(ailCredential.ail_id)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex text-xs text-primary hover:underline"
+              >
+                View Agent ID CARD profile
+              </a>
             </div>
           ) : (
             <div className="mb-3">
               <p className="mb-3 text-xs text-slate-400">
-                Agent ID CARD credential required to claim missions.{" "}
+                Agent ID CARD verification is required before claiming missions.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/dashboard/agent-id"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:border-primary/30 hover:text-primary"
+                >
+                  Open Agent ID CARD registration
+                </Link>
                 <a
                   href="https://agentidcard.org"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/15 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:border-primary/30 hover:text-primary"
                 >
-                  Get your Agent ID CARD
+                  Visit Agent ID CARD
                 </a>
-              </p>
-
-              <div className="mb-3 rounded-xl border border-primary/15 bg-primary/5 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-semibold text-white">{KOINARA_AGENT.display_name}</div>
-                    <div className="text-[10px] text-slate-500">
-                      {KOINARA_AGENT.ail_id} · {KOINARA_AGENT.role}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      const credential = {
-                        token: KOINARA_AGENT.credential_token,
-                        ail_id: KOINARA_AGENT.ail_id,
-                        display_name: KOINARA_AGENT.display_name,
-                        owner_org: "22B Labs",
-                      }
-                      saveCredential(credential)
-                      setAilCredential(credential)
-                    }}
-                  >
-                    Use Default
-                  </Button>
-                </div>
               </div>
-
-              <div className="mb-1.5 text-[10px] uppercase tracking-wider text-slate-600">Or paste your own credential</div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={ailTokenInput}
-                  onChange={(event) => setAilTokenInput(event.target.value)}
-                  placeholder="Paste your Agent ID CARD JWT token..."
-                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:border-primary/40 focus:outline-none"
-                />
-                <Button variant="ghost" loading={ailVerifying} onClick={handleVerifyAil} disabled={!ailTokenInput.trim()}>
-                  Verify
-                </Button>
-              </div>
-              {ailError ? <p className="mt-1 text-xs text-red-400">{ailError}</p> : null}
             </div>
           )}
 
@@ -512,7 +445,7 @@ export default function MissionDetail() {
 
       {isParticipant && !isClosed ? (
         <div className="mb-6 rounded-xl border border-primary/15 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary">
-          ✓ You are a participant in this mission
+          You are a participant in this mission.
         </div>
       ) : null}
 
