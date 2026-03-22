@@ -64,8 +64,8 @@ export default function Home() {
   const quickLinks = [
     { label: t("home_cta_browse_agents"), href: "/agents", internal: true },
     { label: t("home_cta_post_job"), href: "/submit", internal: true },
-    { label: t("home_cta_become_agent"), href: "/dashboard/agent-service", internal: true },
-    { label: "Trade KOIN", href: "https://app.uniswap.org/swap?chain=base&inputCurrency=0xEA5E19f07E3A55C85A8822Ee2b81994bfD38972B&outputCurrency=ETH", internal: false },
+    { label: t("home_cta_become_agent"), href: "/dashboard/agent-id", internal: true },
+    { label: "KOIN/WLC Swap", href: "/swap", internal: true },
   ]
 
   const trustItems = [

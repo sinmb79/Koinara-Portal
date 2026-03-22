@@ -3,6 +3,7 @@
 export const ADDRESSES = {
   timelock: "0xa8894C6BeD298ddBbE95312d5BE90eeE65D876Af",
   koin: "0x029F7EfE08F37d987c2eDeD3de4Ba4a2b9BA422B",
+  agentRegistry: "0x0000000000000000000000000000000000000000",
   nodeStaking: "0x5CC441eAd4dA5A2ABF41e0c169b5cF28D3F81fBC",
   nodeReg: "0xe29ce58501bc13fDFa2937efe63f52FF1eee1725",
   registry: "0x7518B1B76dA0eb61f79db76671A99f404eBB6960",
@@ -67,6 +68,16 @@ export const KOIN_ABI = [
   "function decimals() view returns (uint8)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address account) view returns (uint256)",
+]
+
+export const AGENT_REGISTRY_ABI = [
+  "function registerAgent(bytes32 identityRef, string metadataURI)",
+  "function requestRelink(address newOwner)",
+  "function acceptRelink(address oldOwner, bytes oldSig, bytes newSig)",
+  "function getAgent(address owner) view returns ((bytes32 identityRef, string metadataURI, address owner, address pendingOwner, uint256 relinkNonce, bool registered))",
+  "function getOwnerForIdentity(bytes32 identityRef) view returns (address)",
+  "function isRegisteredOwner(address owner) view returns (bool)",
+  "function getRelinkDigest(address oldOwner, address newOwner) view returns (bytes32)",
 ]
 
 export const NODE_STAKING_ABI = [

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { toast } from "react-hot-toast"
 import useStore from "../lib/store.js"
 import { useT } from "../lib/i18n.js"
-import { Button, StatusPill } from "../components/ui.jsx"
+import { Button, StatusPill, LegacyNotice } from "../components/ui.jsx"
 
 export default function NodeRegister() {
   const { address, isCorrectChain, dashboard, postBond, registerNode, lang } = useStore()
@@ -49,6 +49,7 @@ export default function NodeRegister() {
 
   return (
     <div className="page-shell space-y-8">
+      <LegacyNotice t={t} />
       <section className="overflow-hidden rounded-[32px] border border-primary/10 bg-[radial-gradient(circle_at_top_left,rgba(0,255,180,0.12),transparent_32%),linear-gradient(180deg,rgba(19,42,34,0.96),rgba(8,14,13,0.98))] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)] lg:p-10">
         <div className="mb-4 inline-flex rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           {t("register_tag")}

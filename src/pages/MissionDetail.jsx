@@ -1,25 +1,72 @@
 import { useEffect, useState } from "react"
-import { useParams, Link, useSearchParams } from "react-router-dom"
+import { Link, useParams, useSearchParams } from "react-router-dom"
 import { ethers } from "ethers"
 import { WORLDLAND, BASE, shortAddress, formatDateTime } from "../lib/chain.js"
 import {
-  ADDRESSES, BASE_ADDRESSES, MISSION_BOARD_ABI, COLLABORATION_MANAGER_ABI,
+  ADDRESSES,
+  BASE_ADDRESSES,
+  MISSION_BOARD_ABI,
+  COLLABORATION_MANAGER_ABI,
 } from "../abi/index.js"
-
-const CHAIN_MAP = {
-  worldland: { chain: WORLDLAND, addresses: ADDRESSES },
-  base: { chain: BASE, addresses: BASE_ADDRESSES },
-}
 import useStore from "../lib/store.js"
 import { Button, StatusPill, LoadingState } from "../components/ui.jsx"
 import MISSION_METADATA, { CLOSED_MISSIONS } from "../data/missionMetadata.js"
-import { getSavedCredential, saveCredential, verifyCredential, encodeCredentialForChain, KOINARA_AGENT } from "../lib/ail.js"
+import {
+  getSavedCredential,
+  saveCredential,
+  verifyCredential,
+  encodeCredentialForChain,
+  KOINARA_AGENT,
+} from "../lib/ail.js"
+import {
+  getMissionParticipationState,
+  getVerdictLabel,
+  getVerifierTrustLabel,
+  isRewardableVerdict,
+  normalizeMissionStatus,
+} from "../lib/missionParticipation.js"
+
+const CHAIN_MAP = {
+  worldland: { chain: WORLDLAND, addresses: ADDRESSES, badge: "WL" },
+  base: { chain: BASE, addresses: BASE_ADDRESSES, badge: "BA" },
+}
 
 const CATEGORY_LABELS = { 0: "Cold Case", 1: "Math", 2: "Research" }
-const STATUS_LABELS = { 0: "Open", 1: "In Progress", 2: "Under Review", 3: "Resolved", 4: "Closed" }
-const VERDICT_LABELS = { 0: "Verified", 1: "Progress", 2: "Inconclusive", 3: "Rejected" }
+const STATUS_LABELS = {
+  OPEN: "Open",
+  IN_PROGRESS: "In Progress",
+  UNDER_REVIEW: "Under Review",
+  RESOLVED: "Resolved",
+  CLOSED: "Closed",
+}
 const VERDICT_COLORS = { 0: "success", 1: "warn", 2: "dim", 3: "danger" }
-const DIFFICULTY_COLORS = { Extreme: "text-red-400 border-red-400/20 bg-red-400/10", High: "text-amber-400 border-amber-400/20 bg-amber-400/10", Medium: "text-blue-400 border-blue-400/20 bg-blue-400/10" }
+const DIFFICULTY_COLORS = {
+  Extreme: "text-red-400 border-red-400/20 bg-red-400/10",
+  High: "text-amber-400 border-amber-400/20 bg-amber-400/10",
+  Medium: "text-blue-400 border-blue-400/20 bg-blue-400/10",
+}
+const PARTICIPATION_COPY = {
+  disconnected: {
+    title: "Connect your wallet",
+    body: "Wallet connection is required before you can claim or submit work for this mission.",
+  },
+  needs_agent_id: {
+    title: "Agent ID CARD required",
+    body: "Register or verify Agent ID CARD before claiming this mission.",
+  },
+  can_claim: {
+    title: "Ready to claim",
+    body: "This mission is open for wallet-first participation. Claim it with your connected owner wallet.",
+  },
+  participating: {
+    title: "Mission already claimed",
+    body: "Your wallet is already in the mission. Submit progress or a final resolution from this surface.",
+  },
+  mission_closed: {
+    title: "Mission closed",
+    body: "This mission is no longer available for new claims.",
+  },
+}
 
 function meta(uri) {
   return MISSION_METADATA[uri] || {}
@@ -27,6 +74,16 @@ function meta(uri) {
 
 function fmt(wei) {
   return Number(ethers.formatEther(wei ?? 0n)).toFixed(1)
+}
+
+function getStatusTone(status) {
+  if (status === "RESOLVED") return "success"
+  if (status === "UNDER_REVIEW") return "warn"
+  return "info"
+}
+
+function getChainLabel(chainKey) {
+  return chainKey === "base" ? "Base" : "Worldland"
 }
 
 export default function MissionDetail() {
@@ -52,64 +109,76 @@ export default function MissionDetail() {
   const [ailError, setAilError] = useState("")
 
   const provider = new ethers.JsonRpcProvider(chainConfig.chain.rpcUrls[0])
-  const mbRead = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, provider)
-  const cmRead = new ethers.Contract(chainConfig.addresses.collaborationManager, COLLABORATION_MANAGER_ABI, provider)
+  const missionBoardRead = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, provider)
+  const collaborationRead = new ethers.Contract(chainConfig.addresses.collaborationManager, COLLABORATION_MANAGER_ABI, provider)
 
   useEffect(() => {
     loadMission()
-  }, [id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, chainKey])
 
   useEffect(() => {
-    if (address && mission) checkParticipant()
+    if (address && mission) {
+      checkParticipant()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, mission])
 
   async function loadMission() {
     setLoading(true)
+
     try {
-      const m = await mbRead.getMission(id)
-      setMission(m)
+      const nextMission = await missionBoardRead.getMission(id)
+      setMission(nextMission)
 
-      const parts = await mbRead.getParticipants(id)
-      setParticipants(parts)
+      const nextParticipants = await missionBoardRead.getParticipants(id)
+      setParticipants(nextParticipants)
 
-      const hasTeam = await cmRead.hasTeam(id)
+      const hasTeam = await collaborationRead.hasTeam(id)
       if (hasTeam) {
-        const t = await cmRead.getTeam(id)
-        setTeam(t)
+        setTeam(await collaborationRead.getTeam(id))
+      } else {
+        setTeam(null)
       }
 
-      const subIds = await mbRead.getSubmissionsByMission(id)
-      const subs = []
-      for (const sid of subIds) {
-        const s = await mbRead.getSubmission(sid)
-        subs.push(s)
+      const submissionIds = await missionBoardRead.getSubmissionsByMission(id)
+      const nextSubmissions = []
+      for (const submissionId of submissionIds) {
+        nextSubmissions.push(await missionBoardRead.getSubmission(submissionId))
       }
-      setSubmissions(subs)
+      setSubmissions(nextSubmissions)
 
-      // Load same mission from other chain (by metadataURI)
       const otherKey = chainKey === "base" ? "worldland" : "base"
       const otherConfig = CHAIN_MAP[otherKey]
+      setOtherChainMission(null)
+
       if (otherConfig) {
         try {
           const otherProvider = new ethers.JsonRpcProvider(otherConfig.chain.rpcUrls[0])
-          const otherMb = new ethers.Contract(otherConfig.addresses.missionBoard, MISSION_BOARD_ABI, otherProvider)
-          const otherCount = Number(await otherMb.getMissionCount())
-          for (let i = 1; i <= otherCount; i++) {
-            const om = await otherMb.getMission(i)
-            if (om.metadataURI === m.metadataURI) {
+          const otherMissionBoard = new ethers.Contract(otherConfig.addresses.missionBoard, MISSION_BOARD_ABI, otherProvider)
+          const otherCount = Number(await otherMissionBoard.getMissionCount())
+          for (let index = 1; index <= otherCount; index += 1) {
+            const candidate = await otherMissionBoard.getMission(index)
+            if (candidate.metadataURI === nextMission.metadataURI) {
               setOtherChainMission({
-                id: om.id, category: om.category, metadataURI: om.metadataURI,
-                curator: om.curator, baseReward: om.baseReward, progressReward: om.progressReward,
-                resolutionReward: om.resolutionReward, status: om.status, createdAt: om.createdAt,
-                _chain: otherKey,
+                id: candidate.id,
+                metadataURI: candidate.metadataURI,
+                baseReward: candidate.baseReward,
+                progressReward: candidate.progressReward,
+                resolutionReward: candidate.resolutionReward,
+                status: candidate.status,
+                chain: otherKey,
               })
               break
             }
           }
-        } catch {}
+        } catch {
+          setOtherChainMission(null)
+        }
       }
-    } catch (err) {
-      console.error("Failed to load mission:", err)
+    } catch (error) {
+      console.error("Failed to load mission:", error)
+      setMission(null)
     } finally {
       setLoading(false)
     }
@@ -117,27 +186,36 @@ export default function MissionDetail() {
 
   async function checkParticipant() {
     try {
-      const result = await mbRead.isParticipant(id, address)
-      setIsParticipant(result)
-    } catch {}
+      setIsParticipant(await missionBoardRead.isParticipant(id, address))
+    } catch {
+      setIsParticipant(false)
+    }
   }
 
   async function handleVerifyAil() {
     if (!ailTokenInput.trim()) return
+
     setAilVerifying(true)
     setAilError("")
+
     try {
       const result = await verifyCredential(ailTokenInput.trim())
-      if (result.valid) {
-        const cred = { token: ailTokenInput.trim(), ail_id: result.ail_id, display_name: result.display_name, owner_org: result.owner_org }
-        saveCredential(cred)
-        setAilCredential(cred)
-        setAilTokenInput("")
-      } else {
-        setAilError("Invalid credential: " + (result.reason || "verification failed"))
+      if (!result.valid) {
+        setAilError(`Invalid credential: ${result.reason || "verification failed"}`)
+        return
       }
-    } catch (err) {
-      setAilError(err.message)
+
+      const credential = {
+        token: ailTokenInput.trim(),
+        ail_id: result.ail_id,
+        display_name: result.display_name,
+        owner_org: result.owner_org,
+      }
+      saveCredential(credential)
+      setAilCredential(credential)
+      setAilTokenInput("")
+    } catch (error) {
+      setAilError(error.message)
     } finally {
       setAilVerifying(false)
     }
@@ -146,32 +224,32 @@ export default function MissionDetail() {
   async function handleClaim() {
     if (!signer) return
     if (!ailCredential?.token) {
-      alert("AIL credential required. Please verify your Agent ID Card first.")
+      alert("Agent ID CARD credential required. Please verify your Agent ID CARD first.")
       return
     }
+
     setClaiming(true)
+
     try {
-      // Step 1: Verify credential against real AIL API (agentidcard.org)
-      const ailResult = await verifyCredential(ailCredential.token)
-      if (!ailResult.valid) {
-        alert("AIL verification failed: " + (ailResult.reason || "invalid credential"))
+      const verification = await verifyCredential(ailCredential.token)
+      if (!verification.valid) {
+        alert(`Agent ID CARD verification failed: ${verification.reason || "invalid credential"}`)
         return
       }
-      if (ailResult.revoked) {
-        alert("This AIL credential has been revoked.")
+      if (verification.revoked) {
+        alert("This Agent ID CARD credential has been revoked.")
         return
       }
 
-      // Step 2: Encode verified credential for on-chain submission
-      const mb = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
+      const missionBoard = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
       const credential = encodeCredentialForChain(address)
-      const tx = await mb.claimMission(id, credential)
+      const tx = await missionBoard.claimMission(id, credential)
       await tx.wait()
       await loadMission()
       await checkParticipant()
-    } catch (err) {
-      console.error("Claim failed:", err)
-      alert(err?.reason || err?.message || "Claim failed")
+    } catch (error) {
+      console.error("Claim failed:", error)
+      alert(error?.reason || error?.message || "Claim failed")
     } finally {
       setClaiming(false)
     }
@@ -179,17 +257,19 @@ export default function MissionDetail() {
 
   async function handleSubmit(isResolution) {
     if (!signer || !reportHash.trim()) return
+
     setSubmitting(true)
+
     try {
-      const mb = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
-      const fn = isResolution ? mb.submitResolution : mb.submitProgress
+      const missionBoard = new ethers.Contract(chainConfig.addresses.missionBoard, MISSION_BOARD_ABI, signer)
+      const fn = isResolution ? missionBoard.submitResolution : missionBoard.submitProgress
       const tx = await fn(id, reportHash.trim(), "0x")
       await tx.wait()
       setReportHash("")
       await loadMission()
-    } catch (err) {
-      console.error("Submit failed:", err)
-      alert(err?.reason || err?.message || "Submit failed")
+    } catch (error) {
+      console.error("Submit failed:", error)
+      alert(error?.reason || error?.message || "Submit failed")
     } finally {
       setSubmitting(false)
     }
@@ -208,249 +288,283 @@ export default function MissionDetail() {
       <div className="page-shell py-16 text-center text-slate-500">
         Mission not found.
         <br />
-        <Link to="/missions" className="text-primary mt-4 inline-block">&larr; Back to Mission Board</Link>
+        <Link to="/missions" className="mt-4 inline-block text-primary">
+          &larr; Back to Mission Board
+        </Link>
       </div>
     )
   }
 
-  const cat = Number(mission.category)
-  const status = Number(mission.status)
-  const md = meta(mission.metadataURI)
+  const category = Number(mission.category)
+  const details = meta(mission.metadataURI)
+  const normalizedStatus = normalizeMissionStatus(Number(mission.status))
   const isClosed = CLOSED_MISSIONS.has(mission.metadataURI)
-  const canClaim = !isClosed && (status === 0 || status === 1) && address && !isParticipant
-  const canSubmit = !isClosed && (status === 1) && isParticipant
+  const participationState = getMissionParticipationState({
+    connected: Boolean(address),
+    agentIdRegistered: Boolean(ailCredential),
+    isMissionParticipant: isParticipant,
+    missionStatus: normalizedStatus,
+  })
+  const showClaimPanel = !isClosed && Boolean(address) && !isParticipant && ["OPEN", "IN_PROGRESS"].includes(normalizedStatus)
+  const canSubmit = !isClosed && participationState.canSubmit
+  const verifierTrustLabel = getVerifierTrustLabel("proova")
+  const participationCopy = PARTICIPATION_COPY[participationState.statusKey] || PARTICIPATION_COPY.disconnected
+  const currentChainLabel = getChainLabel(chainKey)
+  const mirroredChainLabel = otherChainMission ? getChainLabel(otherChainMission.chain) : null
 
   return (
-    <div className="page-shell py-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <Link to="/missions" className="text-xs text-primary hover:underline">&larr; Back to Mission Board</Link>
-        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase">
-          {chainKey === "base" ? "⬡" : "🌐"} {chainConfig.chain.chainName}
+    <div className="page-shell mx-auto max-w-4xl py-8">
+      <div className="mb-4 flex items-center justify-between">
+        <Link to="/missions" className="text-xs text-primary hover:underline">
+          &larr; Back to Mission Board
+        </Link>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase text-slate-400">
+          {chainConfig.badge} {chainConfig.chain.chainName}
         </span>
       </div>
 
-      {/* Closed banner */}
-      {isClosed && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 mb-6">
-          <div className="text-sm font-bold text-amber-400 mb-1">This mission is closed</div>
-          <p className="text-xs text-slate-400">{md.closedReason}</p>
+      {isClosed ? (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="mb-1 text-sm font-bold text-amber-400">This mission is closed</div>
+          <p className="text-xs text-slate-400">{details.closedReason}</p>
         </div>
-      )}
+      ) : null}
 
-      {/* Header */}
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 mb-6">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <StatusPill tone="info">{CATEGORY_LABELS[cat]}</StatusPill>
+      <div className="mb-6 rounded-2xl border border-white/8 bg-white/[0.03] p-6">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <StatusPill tone="info">{CATEGORY_LABELS[category]}</StatusPill>
           {isClosed ? (
             <StatusPill tone="dim">Closed (Solved)</StatusPill>
           ) : (
-            <StatusPill tone={status === 3 ? "success" : status === 2 ? "warn" : "info"}>{STATUS_LABELS[status]}</StatusPill>
+            <StatusPill tone={getStatusTone(normalizedStatus)}>{STATUS_LABELS[normalizedStatus] || normalizedStatus}</StatusPill>
           )}
-          {md.difficulty && md.difficulty !== "Solved" && (
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${DIFFICULTY_COLORS[md.difficulty] || ""}`}>
-              {md.difficulty}
+          {details.difficulty && details.difficulty !== "Solved" ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                DIFFICULTY_COLORS[details.difficulty] || ""
+              }`}
+            >
+              {details.difficulty}
             </span>
-          )}
+          ) : null}
+          <StatusPill tone="dim">{verifierTrustLabel}</StatusPill>
         </div>
 
-        <h1 className="text-2xl font-black text-white mb-1">{md.title || mission.metadataURI}</h1>
-        <div className="text-xs text-slate-500 font-mono mb-4">
-          Mission #{id}{md.year ? ` \u00b7 est. ${md.year}` : ""} \u00b7 {mission.metadataURI}
+        <h1 className="mb-1 text-2xl font-black text-white">{details.title || mission.metadataURI}</h1>
+        <div className="mb-4 text-xs font-mono text-slate-500">
+          Mission #{id}
+          {details.year ? ` · est. ${details.year}` : ""}
+          {" · "}
+          {mission.metadataURI}
         </div>
 
-        {/* Description */}
-        {md.description && (
+        {details.description ? (
           <div className="mb-4">
-            <p className="text-sm text-slate-300 leading-relaxed">{md.description}</p>
+            <p className="text-sm leading-relaxed text-slate-300">{details.description}</p>
           </div>
-        )}
+        ) : null}
 
-        {/* Note (partial progress etc) */}
-        {md.note && (
-          <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 px-4 py-2 mb-4">
-            <p className="text-xs text-amber-300">{md.note}</p>
+        {details.note ? (
+          <div className="mb-4 rounded-xl border border-amber-500/15 bg-amber-500/5 px-4 py-2">
+            <p className="text-xs text-amber-300">{details.note}</p>
           </div>
-        )}
+        ) : null}
 
-        {/* References */}
-        {md.references && md.references.length > 0 && (
+        {details.references?.length ? (
           <div className="mb-4">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2 font-semibold">References</div>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">References</div>
             <div className="flex flex-wrap gap-2">
-              {md.references.map((ref, i) => (
+              {details.references.map((reference, index) => (
                 <a
-                  key={i}
-                  href={ref.url}
+                  key={index}
+                  href={reference.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:border-primary/30 hover:text-primary transition"
+                  className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:border-primary/30 hover:text-primary"
                 >
-                  <span className="text-slate-500">&#x2197;</span> {ref.label}
+                  <span className="text-slate-500">↗</span> {reference.label}
                 </a>
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Rewards — combined from both chains */}
-        {(() => {
-          const om = otherChainMission
-          const totalBase = (mission.baseReward ?? 0n) + (om?.baseReward ?? 0n)
-          const totalProgress = (mission.progressReward ?? 0n) + (om?.progressReward ?? 0n)
-          const totalResolution = (mission.resolutionReward ?? 0n) + (om?.resolutionReward ?? 0n)
-          const otherLabel = chainKey === "base" ? "🌐 Worldland" : "⬡ Base"
-          const thisLabel = chainKey === "base" ? "⬡ Base" : "🌐 Worldland"
-          return (
-            <div className="mb-4">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2 font-semibold">
-                Total Rewards (both chains)
-              </div>
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                <div className="rounded-xl bg-white/5 p-3 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base Reward</div>
-                  <div className="text-lg font-bold text-white">{fmt(totalBase)} KOIN</div>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Progress Reward</div>
-                  <div className="text-lg font-bold text-amber-400">{fmt(totalProgress)} KOIN</div>
-                </div>
-                <div className="rounded-xl bg-white/5 p-3 text-center">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Resolution Reward</div>
-                  <div className="text-lg font-bold text-emerald-400">{fmt(totalResolution)} KOIN</div>
-                </div>
-              </div>
-              {om && (
-                <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
-                  <div className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
-                    <span className="font-semibold">{thisLabel}</span>: {fmt(mission.baseReward)} / {fmt(mission.progressReward)} / {fmt(mission.resolutionReward)} KOIN
-                  </div>
-                  <div className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
-                    <span className="font-semibold">{otherLabel}</span>: {fmt(om.baseReward)} / {fmt(om.progressReward)} / {fmt(om.resolutionReward)} KOIN
-                  </div>
-                </div>
-              )}
+        <div className="mb-4">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Current Chain Payout Schedule</div>
+          <div className="mb-3 grid grid-cols-3 gap-3">
+            <RewardStat label="Base Reward" value={`${fmt(mission.baseReward)} KOIN`} valueClassName="text-white" />
+            <RewardStat label="Progress Reward" value={`${fmt(mission.progressReward)} KOIN`} valueClassName="text-amber-400" />
+            <RewardStat label="Resolution Reward" value={`${fmt(mission.resolutionReward)} KOIN`} valueClassName="text-emerald-400" />
+          </div>
+          <div className="grid gap-2 text-[10px] text-slate-500 sm:grid-cols-2">
+            <div className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
+              {currentChainLabel} rewards unlock only after a {verifierTrustLabel} verdict. Rejected or inconclusive outcomes do not create fallback rewards.
             </div>
-          )
-        })()}
+            {otherChainMission ? (
+              <div className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
+                Also mirrored on {mirroredChainLabel}: {fmt(otherChainMission.baseReward)} / {fmt(otherChainMission.progressReward)} / {fmt(otherChainMission.resolutionReward)} KOIN
+              </div>
+            ) : null}
+          </div>
+        </div>
 
         <div className="text-xs text-slate-500">
           Curator: <span className="font-mono">{shortAddress(mission.curator)}</span>
-          {mission.createdAt ? ` \u00b7 Created: ${formatDateTime(mission.createdAt)}` : ""}
+          {mission.createdAt ? ` · Created: ${formatDateTime(mission.createdAt)}` : ""}
         </div>
       </div>
 
-      {/* AIL Credential */}
-      {canClaim && (
-        <div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-5 mb-6">
-          <div className="text-sm font-semibold text-primary mb-2">Claim this Mission</div>
+      {showClaimPanel ? (
+        <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/[0.05] p-5">
+          <div className="mb-2 text-sm font-semibold text-primary">Claim this Mission</div>
+          <div className="mb-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">{participationCopy.title}</div>
+            <p className="mt-2 text-xs leading-6 text-slate-400">{participationCopy.body}</p>
+          </div>
 
           {ailCredential ? (
             <div className="mb-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 uppercase">AIL Verified</span>
-                <span className="text-xs text-slate-400 font-mono">{ailCredential.ail_id}</span>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase text-emerald-400">
+                  Agent ID Verified
+                </span>
+                <span className="font-mono text-xs text-slate-400">{ailCredential.ail_id}</span>
               </div>
-              <p className="text-xs text-slate-500">{ailCredential.display_name}{ailCredential.owner_org ? ` \u00b7 ${ailCredential.owner_org}` : ""}</p>
+              <p className="text-xs text-slate-500">
+                {ailCredential.display_name}
+                {ailCredential.owner_org ? ` · ${ailCredential.owner_org}` : ""}
+              </p>
             </div>
           ) : (
             <div className="mb-3">
-              <p className="text-xs text-slate-400 mb-3">
-                AIL credential required to claim missions.{" "}
-                <a href="https://aigentidcard.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  Get your Agent ID Card
+              <p className="mb-3 text-xs text-slate-400">
+                Agent ID CARD credential required to claim missions.{" "}
+                <a
+                  href="https://agentidcard.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Get your Agent ID CARD
                 </a>
               </p>
 
-              {/* Quick-use Koinara default agent */}
-              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 mb-3">
+              <div className="mb-3 rounded-xl border border-primary/15 bg-primary/5 p-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs font-semibold text-white">{KOINARA_AGENT.display_name}</div>
-                    <div className="text-[10px] text-slate-500">{KOINARA_AGENT.ail_id} &middot; {KOINARA_AGENT.role}</div>
+                    <div className="text-[10px] text-slate-500">
+                      {KOINARA_AGENT.ail_id} · {KOINARA_AGENT.role}
+                    </div>
                   </div>
-                  <Button variant="ghost" onClick={() => {
-                    const cred = { token: KOINARA_AGENT.credential_token, ail_id: KOINARA_AGENT.ail_id, display_name: KOINARA_AGENT.display_name, owner_org: "22B Labs" }
-                    saveCredential(cred)
-                    setAilCredential(cred)
-                  }}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      const credential = {
+                        token: KOINARA_AGENT.credential_token,
+                        ail_id: KOINARA_AGENT.ail_id,
+                        display_name: KOINARA_AGENT.display_name,
+                        owner_org: "22B Labs",
+                      }
+                      saveCredential(credential)
+                      setAilCredential(credential)
+                    }}
+                  >
                     Use Default
                   </Button>
                 </div>
               </div>
 
-              {/* Or paste custom token */}
-              <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">Or paste your own credential</div>
+              <div className="mb-1.5 text-[10px] uppercase tracking-wider text-slate-600">Or paste your own credential</div>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={ailTokenInput}
-                  onChange={(e) => setAilTokenInput(e.target.value)}
-                  placeholder="Paste your AIL JWT token..."
+                  onChange={(event) => setAilTokenInput(event.target.value)}
+                  placeholder="Paste your Agent ID CARD JWT token..."
                   className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:border-primary/40 focus:outline-none"
                 />
                 <Button variant="ghost" loading={ailVerifying} onClick={handleVerifyAil} disabled={!ailTokenInput.trim()}>
                   Verify
                 </Button>
               </div>
-              {ailError && <p className="text-xs text-red-400 mt-1">{ailError}</p>}
+              {ailError ? <p className="mt-1 text-xs text-red-400">{ailError}</p> : null}
             </div>
           )}
 
-          <Button variant="primary" loading={claiming} onClick={handleClaim} disabled={!ailCredential}>
-            {ailCredential ? "Claim Mission" : "Verify AIL Credential First"}
+          <Button variant="primary" loading={claiming} onClick={handleClaim} disabled={!canClaim}>
+            {canClaim ? "Claim Mission" : "Verify Agent ID CARD First"}
           </Button>
-          <p className="text-[10px] text-slate-500 mt-2">
-            Identity verified via <a href="https://aigentidcard.org" target="_blank" rel="noopener noreferrer" className="text-primary/60 hover:text-primary">AIL (agentidcard.org)</a> before on-chain claim
+          <p className="mt-2 text-[10px] text-slate-500">
+            Identity is verified via{" "}
+            <a
+              href="https://agentidcard.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary/60 hover:text-primary"
+            >
+              Agent ID CARD
+            </a>{" "}
+            before on-chain claim.
           </p>
         </div>
-      )}
+      ) : null}
 
-      {isParticipant && !isClosed && (
-        <div className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-2 text-xs text-primary font-semibold mb-6">
-          &#x2713; You are a participant in this mission
+      {isParticipant && !isClosed ? (
+        <div className="mb-6 rounded-xl border border-primary/15 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary">
+          ✓ You are a participant in this mission
         </div>
-      )}
+      ) : null}
 
-      {/* Participants */}
-      {participants.length > 0 && (
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 mb-6">
-          <div className="text-sm font-semibold text-white mb-3">Participants ({participants.length})</div>
+      {participants.length > 0 ? (
+        <div className="mb-6 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+          <div className="mb-3 text-sm font-semibold text-white">Participants ({participants.length})</div>
           <div className="flex flex-wrap gap-2">
-            {participants.map((p) => (
-              <span key={p} className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-slate-300">
-                {shortAddress(p)}
+            {participants.map((participant) => (
+              <span
+                key={participant}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono text-slate-300"
+              >
+                {shortAddress(participant)}
               </span>
             ))}
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Team */}
-      {team && team.exists && (
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 mb-6">
-          <div className="text-sm font-semibold text-white mb-3">Team</div>
+      {team?.exists ? (
+        <div className="mb-6 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+          <div className="mb-3 text-sm font-semibold text-white">Team</div>
           <div className="space-y-2 text-xs">
-            {team.agents?.length > 0 && (
-              <div><span className="text-slate-500">Agents:</span> {team.agents.map(shortAddress).join(", ")}</div>
-            )}
-            {team.humans?.length > 0 && (
-              <div><span className="text-slate-500">Humans:</span> {team.humans.map(shortAddress).join(", ")}</div>
-            )}
-            <div><span className="text-slate-500">Shares:</span> {team.rewardShares?.map((s) => `${Number(s) / 100}%`).join(", ")}</div>
+            {team.agents?.length > 0 ? (
+              <div>
+                <span className="text-slate-500">Agents:</span> {team.agents.map(shortAddress).join(", ")}
+              </div>
+            ) : null}
+            {team.humans?.length > 0 ? (
+              <div>
+                <span className="text-slate-500">Humans:</span> {team.humans.map(shortAddress).join(", ")}
+              </div>
+            ) : null}
+            <div>
+              <span className="text-slate-500">Shares:</span> {team.rewardShares?.map((share) => `${Number(share) / 100}%`).join(", ")}
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Submit */}
-      {canSubmit && (
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 mb-6">
-          <div className="text-sm font-semibold text-white mb-3">Submit Report</div>
+      {canSubmit ? (
+        <div className="mb-6 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+          <div className="mb-1 text-sm font-semibold text-white">Submit Report</div>
+          <p className="mb-3 text-xs text-slate-500">
+            Submit progress or a final resolution. Rewards only unlock after {verifierTrustLabel} confirms the outcome.
+          </p>
           <input
             type="text"
             value={reportHash}
-            onChange={(e) => setReportHash(e.target.value)}
+            onChange={(event) => setReportHash(event.target.value)}
             placeholder="IPFS report hash (e.g. QmXyz...)"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:border-primary/40 focus:outline-none mb-3"
+            className="mb-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:border-primary/40 focus:outline-none"
           />
           <div className="flex gap-2">
             <Button variant="ghost" loading={submitting} onClick={() => handleSubmit(false)} disabled={!reportHash.trim()}>
@@ -461,39 +575,59 @@ export default function MissionDetail() {
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Submissions */}
-      {submissions.length > 0 && (
+      {submissions.length > 0 ? (
         <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5">
-          <div className="text-sm font-semibold text-white mb-3">Submissions ({submissions.length})</div>
+          <div className="mb-3 text-sm font-semibold text-white">Submissions ({submissions.length})</div>
           <div className="space-y-3">
-            {submissions.map((s) => {
-              const verdict = Number(s.verdict)
+            {submissions.map((submission) => {
+              const verdict = Number(submission.verdict)
+              const verdictLabel = getVerdictLabel(verdict)
+              const verdictEligible = isRewardableVerdict(verdict)
+
               return (
-                <div key={Number(s.id)} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <StatusPill tone={s.isResolution ? "info" : "dim"}>
-                      {s.isResolution ? "Resolution" : "Progress"}
+                <div key={Number(submission.id)} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <StatusPill tone={submission.isResolution ? "info" : "dim"}>
+                      {submission.isResolution ? "Resolution" : "Progress"}
                     </StatusPill>
-                    {s.verified ? (
-                      <StatusPill tone={VERDICT_COLORS[verdict]}>{VERDICT_LABELS[verdict]}</StatusPill>
+                    {submission.verified ? (
+                      <>
+                        <StatusPill tone={VERDICT_COLORS[verdict] || "dim"}>{verdictLabel}</StatusPill>
+                        <span
+                          className={`text-[9px] font-semibold uppercase ${
+                            verdictEligible ? "text-emerald-400" : "text-slate-500"
+                          }`}
+                        >
+                          {verdictEligible ? "Reward eligible" : "No reward"}
+                        </span>
+                      </>
                     ) : (
-                      <StatusPill tone="dim">Pending</StatusPill>
+                      <StatusPill tone="dim">Pending verification</StatusPill>
                     )}
                   </div>
                   <div className="text-xs text-slate-500">
-                    <span className="font-mono">{shortAddress(s.submitter)}</span>
+                    <span className="font-mono">{shortAddress(submission.submitter)}</span>
                     <span className="mx-2">&middot;</span>
-                    <span className="font-mono">{s.reportHash}</span>
-                    {s.submittedAt ? <span> &middot; {formatDateTime(s.submittedAt)}</span> : null}
+                    <span className="font-mono">{submission.reportHash}</span>
+                    {submission.submittedAt ? <span> &middot; {formatDateTime(submission.submittedAt)}</span> : null}
                   </div>
                 </div>
               )
             })}
           </div>
         </div>
-      )}
+      ) : null}
+    </div>
+  )
+}
+
+function RewardStat({ label, value, valueClassName }) {
+  return (
+    <div className="rounded-xl bg-white/5 p-3 text-center">
+      <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`text-lg font-bold ${valueClassName}`}>{value}</div>
     </div>
   )
 }

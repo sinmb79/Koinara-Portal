@@ -2,39 +2,67 @@ import { Link } from "react-router-dom"
 import { useT } from "../lib/i18n.js"
 import useStore from "../lib/store.js"
 import { EXTERNAL_LINKS } from "../lib/externalLinks.js"
+import { Notice } from "../components/ui.jsx"
 
 export default function Guide() {
   const { lang } = useStore()
   const t = useT(lang)
 
-  const steps = [
+  const tracks = [
     {
-      title: t("guide_step1_title"),
-      body: t("guide_step1_body"),
-      links: [{ label: t("guide_step1_link"), href: EXTERNAL_LINKS.installWindows }],
+      title: t("guide_track_requester_title"),
+      body: t("guide_track_requester_body"),
+      href: "/submit",
+      cta: t("guide_track_requester_cta"),
+      legacy: false,
     },
     {
-      title: t("guide_step2_title"),
-      body: t("guide_step2_body"),
-      links: [{ label: t("guide_step2_link"), href: EXTERNAL_LINKS.openclawSetup }],
+      title: t("guide_track_agent_title"),
+      body: t("guide_track_agent_body"),
+      href: "/dashboard/agent-id",
+      cta: t("guide_track_agent_cta"),
+      legacy: false,
     },
     {
-      title: t("guide_step3_title"),
-      body: t("guide_step3_body"),
-      links: [{ label: t("guide_step3_link"), href: EXTERNAL_LINKS.installWindows }],
-    },
-    {
-      title: t("guide_step4_title"),
-      body: t("guide_step4_body"),
-      links: [{ label: t("guide_step4_link"), href: "/dashboard" }],
+      title: t("guide_track_legacy_title"),
+      body: t("guide_track_legacy_body"),
+      href: EXTERNAL_LINKS.legacyNodeGuide,
+      cta: t("guide_track_legacy_cta"),
+      legacy: true,
     },
   ]
 
-  const requirements = [
-    t("guide_requirement_wallet"),
-    t("guide_requirement_worldland"),
-    t("guide_requirement_openclaw"),
-    t("guide_requirement_agent"),
+  const resources = [
+    {
+      title: t("home_link_whitepaper"),
+      body: t("home_link_whitepaper_desc"),
+      href: EXTERNAL_LINKS.whitepaperKo,
+    },
+    {
+      title: t("guide_whitepaper_en"),
+      body: t("guide_whitepaper_en_desc"),
+      href: EXTERNAL_LINKS.whitepaperEn,
+    },
+    {
+      title: t("reboot_agent_id_card"),
+      body: t("guide_track_agent_body"),
+      href: EXTERNAL_LINKS.agentRegistration,
+    },
+    {
+      title: "Mission execution",
+      body: "Wallet-first join, submit, and claim flow for agents.",
+      href: EXTERNAL_LINKS.missionExecution,
+    },
+    {
+      title: "Verification guide",
+      body: "Verifier responsibilities, settlement review, and specialized trust expectations.",
+      href: EXTERNAL_LINKS.verificationGuide,
+    },
+    {
+      title: t("reboot_legacy_operator"),
+      body: t("guide_track_legacy_body"),
+      href: EXTERNAL_LINKS.installWindows,
+    },
   ]
 
   return (
@@ -43,107 +71,77 @@ export default function Guide() {
         <div className="mb-4 inline-flex rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           {t("guide_tag")}
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t("guide_title")}</h1>
-        <p className="mt-4 text-lg leading-8 text-slate-300">{t("guide_subtitle")}</p>
+        <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">{t("guide_reboot_title")}</h1>
+        <p className="mt-4 max-w-4xl text-lg leading-8 text-slate-300">{t("guide_reboot_subtitle")}</p>
       </section>
 
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-        <aside className="h-fit rounded-[28px] border border-primary/10 bg-white/5 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)] lg:sticky lg:top-28">
-          <div className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-            {t("guide_sidebar_title")}
-          </div>
-          <div className="grid gap-2">
-            {steps.map((step, index) => (
-              <a
-                key={step.title}
-                href={`#guide-step-${index + 1}`}
-                className="rounded-xl border border-white/5 bg-[#10261f]/70 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-primary/20 hover:text-primary"
-              >
-                {step.title}
-              </a>
-            ))}
-          </div>
-        </aside>
+      <Notice>{t("dashboard_reboot_notice")}</Notice>
 
-        <div className="space-y-6">
-          <PanelCard title={t("guide_requirements_title")} subtitle={t("guide_requirements_subtitle")}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {requirements.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-white/5 bg-[#10261f]/70 px-4 py-4 text-sm leading-7 text-slate-200"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </PanelCard>
+      <section className="grid gap-6 xl:grid-cols-3">
+        {tracks.map((track) => (
+          <GuideTrackCard
+            key={track.title}
+            title={track.title}
+            body={track.body}
+            href={track.href}
+            cta={track.cta}
+            legacy={track.legacy}
+          />
+        ))}
+      </section>
 
-          {steps.map((step, index) => (
-            <PanelCard
-              key={step.title}
-              title={step.title}
-              subtitle={t("guide_step_note")}
-              action={
-                <span
-                  id={`guide-step-${index + 1}`}
-                  className="font-mono text-xs uppercase tracking-[0.2em] text-slate-500"
-                >
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-              }
-            >
-              <div className="space-y-5">
-                <p className="text-sm leading-8 text-slate-300">{step.body}</p>
-                <div className="flex flex-wrap gap-3">
-                  {step.links.map((link) =>
-                    link.href.startsWith("/") ? (
-                      <Link
-                        key={link.label}
-                        to={link.href}
-                        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-bold text-primary transition hover:bg-primary/20"
-                      >
-                        {link.label}
-                      </Link>
-                    ) : (
-                      <a
-                        key={link.label}
-                        href={link.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-bold text-primary transition hover:bg-primary/20"
-                      >
-                        {link.label}
-                      </a>
-                    ),
-                  )}
-                </div>
-              </div>
-            </PanelCard>
+      <PanelCard title={t("guide_resource_docs_title")} subtitle={t("guide_resource_docs_subtitle")}>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {resources.map((resource) => (
+            <ResourceLink
+              key={resource.title}
+              title={resource.title}
+              body={resource.body}
+              href={resource.href}
+            />
           ))}
-
-          <PanelCard title={t("guide_more_title")} subtitle={t("guide_more_subtitle")}>
-            <div className="grid gap-3">
-              <ResourceLink
-                title={t("home_link_whitepaper")}
-                body={t("home_link_whitepaper_desc")}
-                href={EXTERNAL_LINKS.whitepaperKo}
-              />
-              <ResourceLink
-                title={t("guide_whitepaper_en")}
-                body={t("guide_whitepaper_en_desc")}
-                href={EXTERNAL_LINKS.whitepaperEn}
-              />
-              <ResourceLink
-                title={t("home_link_repo")}
-                body={t("home_link_repo_desc")}
-                href={EXTERNAL_LINKS.nodeRepo}
-              />
-            </div>
-          </PanelCard>
         </div>
-      </div>
+      </PanelCard>
     </div>
+  )
+}
+
+function GuideTrackCard({ title, body, href, cta, legacy }) {
+  const className = legacy
+    ? "rounded-[28px] border border-amber-500/20 bg-[linear-gradient(180deg,rgba(72,42,12,0.28),rgba(15,10,7,0.78))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
+    : "rounded-[28px] border border-primary/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.22)]"
+
+  const actionClassName = legacy
+    ? "inline-flex h-11 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 text-sm font-bold text-amber-300 transition hover:bg-amber-500/15"
+    : "inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-5 text-sm font-bold text-primary transition hover:bg-primary/20"
+
+  return (
+    <section className={className}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-2xl font-black text-white">{title}</h2>
+        {legacy ? (
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300">
+            Legacy
+          </span>
+        ) : (
+          <span className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+            Default
+          </span>
+        )}
+      </div>
+      <p className="mt-4 text-sm leading-8 text-slate-300">{body}</p>
+      <div className="mt-6">
+        {href.startsWith("/") ? (
+          <Link to={href} className={actionClassName}>
+            {cta}
+          </Link>
+        ) : (
+          <a href={href} target="_blank" rel="noreferrer" className={actionClassName}>
+            {cta}
+          </a>
+        )}
+      </div>
+    </section>
   )
 }
 

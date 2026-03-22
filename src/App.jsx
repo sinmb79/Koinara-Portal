@@ -7,11 +7,13 @@ import useStore from "./lib/store.js"
 import { captureReferral } from "./lib/feeConfig.js"
 import { LoadingState } from "./components/ui.jsx"
 import { isStandaloneRoute } from "./lib/routeLayout.js"
+import { getCutoverMode } from "./lib/cutoverFlags.js"
 
 const Home = lazy(() => import("./pages/Home.jsx"))
 const EcosystemHome = lazy(() => import("./pages/EcosystemHome.jsx"))
 const Guide = lazy(() => import("./pages/Guide.jsx"))
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"))
+const AgentIdentityRegister = lazy(() => import("./pages/AgentIdentityRegister.jsx"))
 const JobExplorer = lazy(() => import("./pages/JobExplorer.jsx"))
 const CreateJob = lazy(() => import("./pages/CreateJob.jsx"))
 const JobDetail = lazy(() => import("./pages/JobDetail.jsx"))
@@ -33,6 +35,7 @@ export default function App() {
   const location = useLocation()
   const { initReadOnly, refreshDashboard, loadJobs, loadRewards } = useStore()
   const standalone = isStandaloneRoute(location.pathname)
+  const cutoverMode = getCutoverMode(location.pathname)
 
   useEffect(() => {
     const boot = async () => {
@@ -67,6 +70,7 @@ export default function App() {
         <Route path="/job/:id" element={<JobDetail />} />
         <Route path="/providers" element={<Providers />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard/agent-id" element={<AgentIdentityRegister />} />
         <Route path="/dashboard/agent-service" element={<AgentServiceRegister />} />
         <Route path="/dashboard/bond" element={<NodeBond />} />
         <Route path="/dashboard/register" element={<NodeRegister />} />
@@ -82,11 +86,11 @@ export default function App() {
   )
 
   if (standalone) {
-    return <div className="app-shell">{routes}</div>
+    return <div className="app-shell" data-cutover-mode={cutoverMode}>{routes}</div>
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-cutover-mode={cutoverMode}>
       <Navbar />
       <main className="flex-1">
         <EcosystemShell>{routes}</EcosystemShell>

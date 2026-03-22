@@ -77,18 +77,18 @@ describe("getSwapReadiness", () => {
 describe("assembleDisclosure", () => {
   it("includes required English disclosure fields", () => {
     const disclosure = assembleDisclosure("en")
-    assert.equal(disclosure.title, "Official KOIN/WLC Market")
+    assert.equal(disclosure.title, "Worldland KOIN/WLC market disclosure")
     assert.equal(disclosure.networkLabel, "Worldland Mainnet")
     assert.ok(disclosure.liquidityWarning.includes("Bootstrap"))
-    assert.ok(disclosure.canonicalNote.includes("canonical"))
+    assert.ok(disclosure.canonicalNote.includes("legacy node rewards"))
     assert.ok(disclosure.complianceNote.includes("compliance"))
   })
 
   it("includes required Korean disclosure fields", () => {
     const disclosure = assembleDisclosure("ko")
-    assert.equal(disclosure.title, "\uacf5\uc2dd KOIN/WLC \ub9c8\ucf13")
+    assert.equal(disclosure.title, "Worldland KOIN/WLC \ub9c8\ucf13 \uacf5\uac1c \uc815\ubcf4")
     assert.ok(disclosure.liquidityWarning.includes("\ubd80\ud2b8\uc2a4\ud2b8\ub7a9"))
-    assert.ok(disclosure.canonicalNote.includes("Worldland KOIN"))
+    assert.ok(disclosure.canonicalNote.includes("\ub808\uac70\uc2dc \ub178\ub4dc \ubcf4\uc0c1"))
   })
 
   it("shows not yet disclosed pool address before launch", () => {

@@ -83,7 +83,11 @@ export default function UserSnapshot() {
         <section className="rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary/80">Status snapshot</div>
           <div className="mt-4 grid gap-3">
-            <StatusMetric label="KOIN balance" value={hasIdentity ? `${dashboard.koinBalance} KOIN` : "--"} hint="Held in the connected wallet" />
+            <StatusMetric
+              label="Mission KOIN balance"
+              value={hasIdentity ? `${dashboard.koinBalance} KOIN` : "--"}
+              hint="Balance on the Worldland mission reward surface"
+            />
             <StatusMetric label="In progress" value={hasIdentity ? String(activeRequests) : "--"} hint="Requests still moving through OpenClaw" />
             <StatusMetric label="Completed missions" value={hasIdentity ? String(completedMissions) : "--"} hint="Settled requests from your wallet" />
           </div>

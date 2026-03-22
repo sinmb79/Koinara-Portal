@@ -70,6 +70,15 @@ export function Notice({ children }) {
   return <div className="notice">{children}</div>
 }
 
+export function LegacyNotice({ t }) {
+  return (
+    <div className="notice" style={{ borderColor: "rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)" }}>
+      <span style={{ fontWeight: 700, color: "#f59e0b" }}>⚠ {t("legacy_notice_title")}</span>{" "}
+      {t("legacy_notice_body")}
+    </div>
+  )
+}
+
 export function JobStatePill({ state }) {
   const { lang } = useStore()
   const t = useT(lang)
