@@ -167,6 +167,30 @@ test("auth state helpers round-trip the CSRF token", () => {
   assert.equal(getAILAuthState(storage), null)
 })
 
+test("auth state helpers default to localStorage so popup callback can read the same state", () => {
+  const originalLocalStorage = globalThis.localStorage
+  const originalSessionStorage = globalThis.sessionStorage
+  const localStorage = createStorage()
+  const sessionStorage = createStorage()
+
+  globalThis.localStorage = localStorage
+  globalThis.sessionStorage = sessionStorage
+
+  try {
+    saveAILAuthState("popup-shared-state")
+
+    assert.equal(localStorage.getItem("ail_oauth_state"), "popup-shared-state")
+    assert.equal(sessionStorage.getItem("ail_oauth_state"), null)
+    assert.equal(getAILAuthState(), "popup-shared-state")
+
+    clearAILAuthState()
+    assert.equal(getAILAuthState(), null)
+  } finally {
+    globalThis.localStorage = originalLocalStorage
+    globalThis.sessionStorage = originalSessionStorage
+  }
+})
+
 test("isLegacyAILCredential only flags pre-OAuth shapes", () => {
   assert.equal(isLegacyAILCredential({ session_token: "legacy" }), true)
   assert.equal(isLegacyAILCredential({ credential_token: "jwt" }), true)
