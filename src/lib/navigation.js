@@ -22,6 +22,7 @@ export function getMainNavItems(t, { includeLegacy = false } = {}) {
     ["/agents", t("nav_agents")],
     ["/torqr", "Torqr"],
     ["/missions", "Missions"],
+    ["/swap", "Swap"],
     ["/tokenomics", "Tokenomics"],
     ["/swap", "Swap"],
     ["/dashboard/bond", t("nav_staking")],
