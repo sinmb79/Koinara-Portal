@@ -1,13 +1,13 @@
 export const AIL_EXCHANGE_URL = "https://api.agentidcard.org/auth/exchange"
-export const DEFAULT_AIL_CLIENT_ID = "ail_client_4fd5181b1f754362a99a75596b41b593"
+export const DEFAULT_AIL_CLIENT_ID = "ail_client_c8eebc59b5af4e6bae589a0677126e9f"
 
 export const ALLOWED_AIL_ORIGINS = [
-  "https://koinara.xyz",
+  "https://www.koinara.xyz",
   "http://localhost:5173",
 ]
 
 export const ALLOWED_AIL_REDIRECT_URIS = [
-  "https://koinara.xyz/callback",
+  "https://www.koinara.xyz/callback",
   "http://localhost:5173/callback",
 ]
 

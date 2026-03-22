@@ -3,8 +3,8 @@ import { ethers } from "ethers"
 export const AIL_API = "https://api.agentidcard.org"
 export const AIL_WIDGET_SCRIPT_URL = `${AIL_API}/widget.js`
 export const AIL_BADGE_SCRIPT_URL = `${AIL_API}/badge.js`
-export const DEFAULT_AIL_CLIENT_ID = "ail_client_4fd5181b1f754362a99a75596b41b593"
-export const PROD_AIL_REDIRECT_URI = "https://koinara.xyz/callback"
+export const DEFAULT_AIL_CLIENT_ID = "ail_client_c8eebc59b5af4e6bae589a0677126e9f"
+export const PROD_AIL_REDIRECT_URI = "https://www.koinara.xyz/callback"
 export const DEV_AIL_REDIRECT_URI = "http://localhost:5173/callback"
 
 const AIL_CREDENTIAL_STORAGE_KEY = "ail_credential"

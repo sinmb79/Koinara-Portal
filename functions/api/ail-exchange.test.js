@@ -7,13 +7,13 @@ test("Cloudflare Pages exchange function returns sanitized credential payload", 
     request: new Request("https://www.koinara.xyz/api/ail-exchange", {
       method: "POST",
       headers: {
-        Origin: "https://koinara.xyz",
+        Origin: "https://www.koinara.xyz",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         code: "code_valid",
         state: "state_valid",
-        redirect_uri: "https://koinara.xyz/callback",
+        redirect_uri: "https://www.koinara.xyz/callback",
       }),
     }),
     env: {
@@ -27,7 +27,7 @@ test("Cloudflare Pages exchange function returns sanitized credential payload", 
           client_id: "client_123",
           client_secret: "secret_123",
           code: "code_valid",
-          redirect_uri: "https://koinara.xyz/callback",
+          redirect_uri: "https://www.koinara.xyz/callback",
         })
 
         return new Response(JSON.stringify({
@@ -61,13 +61,13 @@ test("Cloudflare Pages exchange function enforces the registered origin", async 
     request: new Request("https://www.koinara.xyz/api/ail-exchange", {
       method: "POST",
       headers: {
-        Origin: "https://www.koinara.xyz",
+        Origin: "https://koinara.xyz",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         code: "code_valid",
         state: "state_valid",
-        redirect_uri: "https://koinara.xyz/callback",
+        redirect_uri: "https://www.koinara.xyz/callback",
       }),
     }),
     env: {

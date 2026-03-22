@@ -100,7 +100,7 @@ test("redirect URI must match the registered callback exactly", async () => {
     body: {
       code: "code_valid",
       state: "state_valid",
-      redirect_uri: "https://koinara.xyz/auth/callback",
+      redirect_uri: "https://www.koinara.xyz/auth/callback",
     },
   }, {
     clientId: "client_123",
