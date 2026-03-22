@@ -1747,6 +1747,16 @@ Object.assign(translations.ko, {
   agent_id_return_to_register: "Agent ID CARD 등록으로 돌아가기",
 })
 
+Object.assign(translations.en, {
+  footer_community: "Community",
+  footer_contact_email: "Email",
+})
+
+Object.assign(translations.ko, {
+  footer_community: "커뮤니티",
+  footer_contact_email: "이메일",
+})
+
 export function useT(lang) {
   return (key, vars) => {
     const catalog = translations[lang] || translations.en

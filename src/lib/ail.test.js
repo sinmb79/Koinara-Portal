@@ -37,8 +37,8 @@ function createStorage() {
 test("getAILWidgetConfig locks Koinara OAuth defaults", () => {
   const config = getAILWidgetConfig({ isProd: true })
 
-  assert.equal(config.clientId, "ail_client_4fd5181b1f754362a99a75596b41b593")
-  assert.equal(config.redirectUri, "https://koinara.xyz/callback")
+  assert.equal(config.clientId, "ail_client_c8eebc59b5af4e6bae589a0677126e9f")
+  assert.equal(config.redirectUri, "https://www.koinara.xyz/callback")
   assert.equal(config.scope, "identity")
   assert.equal(config.widgetScriptUrl, AIL_WIDGET_SCRIPT_URL)
   assert.equal(config.badgeScriptUrl, AIL_BADGE_SCRIPT_URL)
@@ -47,14 +47,14 @@ test("getAILWidgetConfig locks Koinara OAuth defaults", () => {
 test("buildAILVerifyUrl builds the hosted popup URL with exact params", () => {
   const url = buildAILVerifyUrl({
     clientId: "client_123",
-    redirectUri: "https://koinara.xyz/callback",
+    redirectUri: "https://www.koinara.xyz/callback",
     scope: "identity+reputation",
     state: "state_abc",
   })
 
   assert.equal(
     url,
-    `${AIL_API}/auth/verify?client_id=client_123&redirect_uri=${encodeURIComponent("https://koinara.xyz/callback")}&scope=identity%2Breputation&state=state_abc`,
+    `${AIL_API}/auth/verify?client_id=client_123&redirect_uri=${encodeURIComponent("https://www.koinara.xyz/callback")}&scope=identity%2Breputation&state=state_abc`,
   )
 })
 
@@ -62,7 +62,7 @@ test("exchangeAuthCode posts to the server proxy and returns sanitized identity 
   const calls = []
   const response = await exchangeAuthCode("code_123", {
     state: "state_123",
-    redirectUri: "https://koinara.xyz/callback",
+    redirectUri: "https://www.koinara.xyz/callback",
     fetchImpl: async (input, init) => {
       calls.push([input, init])
       return {
@@ -82,7 +82,7 @@ test("exchangeAuthCode posts to the server proxy and returns sanitized identity 
   assert.deepEqual(JSON.parse(calls[0][1].body), {
     code: "code_123",
     state: "state_123",
-    redirect_uri: "https://koinara.xyz/callback",
+    redirect_uri: "https://www.koinara.xyz/callback",
   })
   assert.equal(response.ail_id, "AIL-2026-00077")
 })

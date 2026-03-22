@@ -9,7 +9,7 @@ export default function Footer() {
 
   return (
     <footer className="mt-auto border-t border-primary/10 bg-[#0b1713]/80">
-      <div className="mx-auto grid w-[min(1260px,calc(100vw-32px))] gap-8 px-0 py-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid w-[min(1440px,calc(100vw-32px))] gap-8 px-0 py-10 md:grid-cols-2 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
         <div className="space-y-3">
           <div className="flex items-center gap-3 text-primary">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-[0_0_24px_rgba(0,255,180,0.14)]">
@@ -38,6 +38,15 @@ export default function Footer() {
             { label: t("footer_guide"), to: "/guide", internal: true },
             { label: "Tokenomics", to: "/tokenomics", internal: true },
             { label: t("footer_whitepaper"), to: EXTERNAL_LINKS.whitepaperEn },
+          ]}
+        />
+
+        <FooterGroup
+          title={t("footer_community")}
+          links={[
+            { label: t("footer_contact_email"), to: EXTERNAL_LINKS.contactEmail },
+            { label: "Discord", to: EXTERNAL_LINKS.discord },
+            { label: "X / Twitter", to: EXTERNAL_LINKS.twitter },
           ]}
         />
 
