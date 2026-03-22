@@ -78,17 +78,17 @@ export function createAILAuthState(randomUUID = globalThis.crypto?.randomUUID?.b
   return `ail_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`
 }
 
-export function saveAILAuthState(state, storage = resolveStorage(null, globalThis.sessionStorage)) {
+export function saveAILAuthState(state, storage = resolveStorage(null, globalThis.localStorage)) {
   if (!storage) return
   storage.setItem(AIL_AUTH_STATE_STORAGE_KEY, String(state))
 }
 
-export function getAILAuthState(storage = resolveStorage(null, globalThis.sessionStorage)) {
+export function getAILAuthState(storage = resolveStorage(null, globalThis.localStorage)) {
   if (!storage) return null
   return storage.getItem(AIL_AUTH_STATE_STORAGE_KEY)
 }
 
-export function clearAILAuthState(storage = resolveStorage(null, globalThis.sessionStorage)) {
+export function clearAILAuthState(storage = resolveStorage(null, globalThis.localStorage)) {
   if (!storage) return
   storage.removeItem(AIL_AUTH_STATE_STORAGE_KEY)
 }

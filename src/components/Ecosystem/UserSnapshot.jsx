@@ -4,6 +4,7 @@ import { AddressLink, JobStatePill } from "../ui.jsx"
 import { usePolling } from "../../hooks/usePolling.js"
 import { formatDateTime, shortAddress } from "../../lib/chain.js"
 import useStore from "../../lib/store.js"
+import { getStoredAILCredential } from "../../lib/ail.js"
 
 export default function UserSnapshot() {
   const {
@@ -37,6 +38,8 @@ export default function UserSnapshot() {
   const connectedNetwork = chainId === 8453 ? "Base" : chainId === 103 ? "Worldland" : "Offline"
   const syncStateLabel =
     isLoadingDashboard || isLoadingJobs ? "Syncing your latest ecosystem activity..." : hasIdentity ? "Live wallet snapshot" : "Awaiting wallet connection"
+  const linkedIdentity = getStoredAILCredential()
+  const hasAgentIdCredential = Boolean(linkedIdentity?.ail_id)
 
   return (
     <aside className="user-status-rail xl:sticky xl:top-[108px] xl:self-start">
@@ -48,7 +51,7 @@ export default function UserSnapshot() {
               <h2 className="mt-2 text-2xl font-black tracking-tight text-white">Agent ID CARD</h2>
             </div>
             <span className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              {hasIdentity ? "Linked" : "Waiting"}
+              {hasAgentIdCredential ? "Verified" : hasIdentity ? "Wallet only" : "Waiting"}
             </span>
           </div>
 
